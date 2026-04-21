@@ -31,7 +31,11 @@
 #include "dx8caps.h"
 #include "missingtexture.h"
 #include "TARGA.H"
+#ifdef _WIN32
 #include <d3dx9tex.h>
+#else
+// D3DXCreateTextureFromFileExA stub is provided in d3d9.h
+#endif
 #include <cstdio>
 #include "wwmemlog.h"
 #include "texture.h"
@@ -772,19 +776,25 @@ void TextureLoader::Flush_Pending_Load_Tasks(void)
 	}
 }
 
-
 // Nework update macro for texture loader.
+#ifdef _WIN32
 #include <mmsystem.h>
-#define UPDATE_NETWORK 											\
-	if (network_callback) {                            \
-		unsigned int time2 = timeGetTime();            \
-		if (time2 - time > 20) {                        \
-			network_callback();                          \
-			time = time2;                                \
-		}                                               \
-	}                                                  \
-
-
+#else
+#include <time.h>
+static inline unsigned int timeGetTime(void) {
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+}
+#endif
+#define UPDATE_NETWORK											\
+	if (network_callback) {								\
+		unsigned int time2 = timeGetTime();			\
+		if (time2 - time > 20)					{		\
+			network_callback();					\
+			time = time2;						\
+		}									\
+	}
 void TextureLoader::Update(void (*network_callback)(void))
 {
 	WWASSERT_PRINT(Is_DX8_Thread(), "TextureLoader::Update must be called from the main thread!");

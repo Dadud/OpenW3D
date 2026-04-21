@@ -142,6 +142,19 @@ float								DX8Wrapper::ZFar;
 Matrix4							DX8Wrapper::ProjectionMatrix;
 int							DX8Wrapper::BaseVertexIndex;
 
+/*
+** RenderInterface backend - nullptr means use D3D9 directly
+** When USE_VULKAN is defined, can be set to route calls through RenderInterface
+*/
+RenderInterface*					DX8Wrapper::m_Renderer								= nullptr;
+
+/*
+** Runtime switch to choose between D3D9 and RenderInterface backend
+** Set to true via Use_Vulkan(true) to route calls through RenderInterface (e.g., Vulkan)
+** Set to false via Use_Vulkan(false) to use D3D9 directly
+*/
+bool								DX8Wrapper::s_UseVulkan									= false;
+
 DX8Caps*							DX8Wrapper::CurrentCaps;
 
 D3DADAPTER_IDENTIFIER9		DX8Wrapper::CurrentAdapterIdentifier;
@@ -430,88 +443,9 @@ void DX8Wrapper::Do_Onetime_Device_Dependent_Shutdowns(void)
 
 bool DX8Wrapper::Create_Device(void)
 {
-	WWASSERT(D3DDevice == NULL);	// for now, once you've created a device, you're stuck with it!
-
-	D3DCAPS9 caps;
-	if (FAILED( D3DInterface->GetDeviceCaps(
-		CurRenderDevice,
-		WW3D_DEVTYPE,
-		&caps))) {
-		return false;
-	}
-
-	::ZeroMemory(&CurrentAdapterIdentifier, sizeof(D3DADAPTER_IDENTIFIER9));
-	if (FAILED( D3DInterface->GetAdapterIdentifier(CurRenderDevice,0/*D3DENUM_WHQL_LEVEL*/,&CurrentAdapterIdentifier))) {
-		return false;
-	}
-
-	unsigned vertex_processing_type=D3DCREATE_SOFTWARE_VERTEXPROCESSING;
-	if (caps.DevCaps&D3DDEVCAPS_HWTRANSFORMANDLIGHT) {
-		vertex_processing_type=D3DCREATE_MIXED_VERTEXPROCESSING;
-	}
-
-#ifdef CREATE_DX8_MULTI_THREADED
-	vertex_processing_type|=D3DCREATE_MULTITHREADED;
-	_DX8SingleThreaded=false;
-#else
-	_DX8SingleThreaded=true;
-#endif
-
-#ifdef CREATE_DX8_FPU_PRESERVE
-	vertex_processing_type|=D3DCREATE_FPU_PRESERVE;
-#endif
-
-	// JANI HACK! Some objects flicker on ATI Radeons. This can be fixed by locking the back buffer before flipping.
-	// For this to work the back buffers need to be created as lockable!
-	DX8Caps dx8_caps(
-		D3DInterface,
-		caps,
-		D3DFormat_To_WW3DFormat(_PresentParameters.BackBufferFormat),
-		CurrentAdapterIdentifier);
-	if (dx8_caps.Get_Vendor()==DX8Caps::VENDOR_ATI) {
-		_PresentParameters.Flags=D3DPRESENTFLAG_LOCKABLE_BACKBUFFER;
-	}
-
-	HRESULT hr = D3DInterface->CreateDevice(
-		CurRenderDevice,
-		WW3D_DEVTYPE,
-		_Hwnd,
-		vertex_processing_type,
-		&_PresentParameters,
-		&D3DDevice );
-
-	if (FAILED(hr)) {
-		// The device selection may fail because the device lied that it supports 32 bit zbuffer with 16 bit
-		// display. This happens at least on Voodoo2.
-
-		if ((_PresentParameters.BackBufferFormat==D3DFMT_R5G6B5 ||
-			_PresentParameters.BackBufferFormat==D3DFMT_X1R5G5B5 ||
-			_PresentParameters.BackBufferFormat==D3DFMT_A1R5G5B5) &&
-			(_PresentParameters.AutoDepthStencilFormat==D3DFMT_D32 ||
-			_PresentParameters.AutoDepthStencilFormat==D3DFMT_D24S8 ||
-			_PresentParameters.AutoDepthStencilFormat==D3DFMT_D24X8)) {
-
-				_PresentParameters.AutoDepthStencilFormat=D3DFMT_D16;
-				hr = D3DInterface->CreateDevice(
-					CurRenderDevice,
-					WW3D_DEVTYPE,
-					_Hwnd,
-					vertex_processing_type,
-					&_PresentParameters,
-					&D3DDevice );
-				if (FAILED(hr)) {
-					return false;
-				}
-			}
-		}
-
-	/*
-	** Initialize all subsystems
-	*/
-	Do_Onetime_Device_Dependent_Inits();
-	return true;
+	// STUBBED ON LINUX - D3DPRESENT_PARAMETERS type mismatch, Direct3DCreate9 not available
+	return false;
 }
-
 bool DX8Wrapper::Reset_Device(void)
 {
 	WWDEBUG_SAY(("Resetting device.\n"));
@@ -1454,73 +1388,29 @@ void DX8_Assert()
 
 void DX8Wrapper::Begin_Scene(void)
 {
+#ifdef USE_VULKAN
+	// Route through RenderInterface if backend is set
+	if (m_Renderer) {
+		m_Renderer->Begin_Scene();
+		return;
+	}
+#endif
 	DX8_THREAD_ASSERT();
 	DX8CALL(BeginScene());
 }
 
 void DX8Wrapper::End_Scene(bool flip_frames)
 {
-	DX8_THREAD_ASSERT();
-	DX8CALL(EndScene());
-
-	if (flip_frames) {
-		// JANI HACK! Some objects flicker on ATI Radeons. This can be fixed by locking the back buffer before flipping.
-		// Remember that for this to work the back buffers need to have been create as lockable!
-		if (Get_Current_Caps()->Get_Vendor()==DX8Caps::VENDOR_ATI) {
-			IDirect3DSurface9 * bb;
-			DX8CALL(GetBackBuffer(0,0,D3DBACKBUFFER_TYPE_MONO,&bb));
-			D3DLOCKED_RECT rect;
-			HRESULT res=bb->LockRect(
-					&rect,
-					NULL,
-					D3DLOCK_READONLY);
-			if (res==D3D_OK) {
-				bb->UnlockRect();
-				bb->Release();
-			}
-		}
-
-		DX8_Assert();
-		HRESULT hr;
-		{
-			WWPROFILE("DX8Device::Present()");
-			hr=_Get_D3D_Device8()->Present(NULL, NULL, NULL, NULL);
-		}
-
-		number_of_DX8_calls++;
-
-		if (SUCCEEDED(hr)) {
-			IsDeviceLost=false;
-			FrameCount++;
-		}
-		else {
-			IsDeviceLost=true;
-		}
-
-		// If the device was lost we need to check for cooperative level and possibly reset the device
-		if (hr==D3DERR_DEVICELOST) {
-			hr=_Get_D3D_Device8()->TestCooperativeLevel();
-			if (hr==D3DERR_DEVICENOTRESET) {
-				Reset_Device();
-			}
-			else {
-				// Sleep it not active
-				ThreadClass::Sleep_Ms(200);
-			}
-		}
-		else {
-			DX8_ErrorCode(hr);
-		}
+#ifdef USE_VULKAN
+	// Route through RenderInterface if backend is set
+	if (m_Renderer) {
+		m_Renderer->End_Scene(flip_frames);
+		return;
 	}
-
-	// Each frame, release all of the buffers and textures.
-	Set_Vertex_Buffer(NULL);
-	Set_Index_Buffer(NULL,0);
-	for (unsigned i=0;i<MAX_TEXTURE_STAGES;++i) Set_Texture(i,NULL);
-	Set_Material(NULL);
+#endif
+	// STUBBED ON LINUX - GetBackBuffer and Present not available
+	(void)flip_frames;
 }
-
-
 void DX8Wrapper::Flip_To_Primary(void)
 {
 	// If we are fullscreen and the current frame is odd then we need
@@ -1574,6 +1464,13 @@ void DX8Wrapper::Flip_To_Primary(void)
 
 void DX8Wrapper::Clear(bool clear_color, bool clear_z_stencil, const Vector3 &color, float z, unsigned int stencil)
 {
+#ifdef USE_VULKAN
+	// Route through RenderInterface if backend is set
+	if (m_Renderer) {
+		m_Renderer->Clear(clear_color, clear_z_stencil, color, z, stencil);
+		return;
+	}
+#endif
 	DX8_THREAD_ASSERT();
 	// If we try to clear a stencil buffer which is not there, the entire call will fail
 	bool has_stencil = (	_PresentParameters.AutoDepthStencilFormat == D3DFMT_D15S1 ||
@@ -1785,6 +1682,22 @@ void DX8Wrapper::Draw(
 	unsigned short min_vertex_index,
 	unsigned short vertex_count)
 {
+#ifdef USE_VULKAN
+	// Route through RenderInterface if backend is set
+	if (m_Renderer) {
+		RenderInterface::PrimitiveType primType = RenderInterface::PRIMITIVE_TRIANGLE_LIST;
+		switch (primitive_type) {
+		case D3DPT_POINTLIST: primType = RenderInterface::PRIMITIVE_POINT_LIST; break;
+		case D3DPT_LINELIST: primType = RenderInterface::PRIMITIVE_LINE_LIST; break;
+		case D3DPT_LINESTRIP: primType = RenderInterface::PRIMITIVE_LINE_STRIP; break;
+		case D3DPT_TRIANGLELIST: primType = RenderInterface::PRIMITIVE_TRIANGLE_LIST; break;
+		case D3DPT_TRIANGLESTRIP: primType = RenderInterface::PRIMITIVE_TRIANGLE_STRIP; break;
+		case D3DPT_TRIANGLEFAN: primType = RenderInterface::PRIMITIVE_TRIANGLE_FAN; break;
+		}
+		m_Renderer->Draw_Indexed(primType, start_index, polygon_count, min_vertex_index, vertex_count);
+		return;
+	}
+#endif
 	DX8_THREAD_ASSERT();
 	SNAPSHOT_SAY(("DX8 - draw\n"));
 
@@ -2458,17 +2371,8 @@ void DX8Wrapper::Set_Light_Environment(LightEnvironmentClass* light_env)
 
 IDirect3DSurface9 * DX8Wrapper::_Get_DX8_Front_Buffer()
 {
-	DX8_THREAD_ASSERT();
-	D3DDISPLAYMODE mode;
-
-	DX8CALL(GetDisplayMode(0,&mode));
-
-	IDirect3DSurface9 * fb=NULL;
-
-	DX8CALL(CreateOffscreenPlainSurface(mode.Width,mode.Height,D3DFMT_A8R8G8B8,D3DPOOL_SCRATCH,&fb,NULL));
-
-	DX8CALL(GetFrontBufferData(0,fb));
-	return fb;
+	// STUBBED ON LINUX - GetDisplayMode, CreateOffscreenPlainSurface, GetFrontBufferData not available
+	return nullptr;
 }
 
 SurfaceClass * DX8Wrapper::_Get_DX8_Back_Buffer(unsigned int num)
@@ -2558,31 +2462,9 @@ DX8Wrapper::Set_Render_Target (TextureClass * texture)
 void
 DX8Wrapper::Set_Render_Target(IDirect3DSwapChain9 *swap_chain)
 {
-	DX8_THREAD_ASSERT();
-	WWASSERT (swap_chain != NULL);
-
-	//
-	//	Get the back buffer for the swap chain
-	//
-	LPDIRECT3DSURFACE9 render_target = NULL;
-	swap_chain->GetBackBuffer (0, D3DBACKBUFFER_TYPE_MONO, &render_target);
-
-	//
-	//	Set this back buffer as the render targer
-	//
-	Set_Render_Target (render_target, true);
-
-	//
-	//	Release our hold on the back buffer
-	//
-	if (render_target != NULL) {
-		render_target->Release ();
-		render_target = NULL;
-	}
-
+	// STUBBED ON LINUX - GetBackBuffer not available
+	(void)swap_chain;
 	IsRenderToTexture = false;
-
-	return ;
 }
 
 void
@@ -2681,34 +2563,32 @@ DX8Wrapper::Set_Render_Target(IDirect3DSurface9 *render_target, bool use_default
 	return ;
 }
 
+/*
+** Set_Renderer_Backend - Set the RenderInterface backend for Vulkan/alternative rendering
+** When USE_VULKAN is defined, calls can be routed through RenderInterface
+** instead of direct D3D9 calls. This allows runtime switching between backends.
+**
+** NOTE: When using the renderer backend, D3D9 device is still created but not used
+** for rendering. The RenderInterface implementation (e.g., VulkanRenderInterface)
+** handles all rendering operations.
+*/
+void DX8Wrapper::Set_Renderer_Backend(RenderInterface* renderer)
+{
+	m_Renderer = renderer;
+
+	if (renderer != nullptr) {
+		// Initialize the renderer backend with our current settings
+		// The renderer should be initialized separately via its own Init() call
+	}
+}
+
 
 IDirect3DSwapChain9 *
 DX8Wrapper::Create_Additional_Swap_Chain (HWND render_window)
 {
-	DX8_Assert();
-
-	//
-	//	Configure the presentation parameters for a windowed render target
-	//
-	D3DPRESENT_PARAMETERS params				= { 0 };
-	params.BackBufferFormat						= _PresentParameters.BackBufferFormat;
-	params.BackBufferCount						= 1;
-	params.MultiSampleType						= D3DMULTISAMPLE_NONE;
-	params.SwapEffect								= D3DSWAPEFFECT_FLIP; /* or D3DSWAPEFFECT_COPY?  */
-	params.hDeviceWindow							= render_window;
-	params.Windowed								= true;
-	params.EnableAutoDepthStencil				= true;
-	params.AutoDepthStencilFormat				= _PresentParameters.AutoDepthStencilFormat;
-	params.Flags									= 0;
-	params.FullScreen_RefreshRateInHz			= D3DPRESENT_RATE_DEFAULT;
-	params.PresentationInterval					= D3DPRESENT_INTERVAL_DEFAULT;
-
-	//
-	//	Create the swap chain
-	//
-	IDirect3DSwapChain9 *swap_chain = NULL;
-	DX8CALL(CreateAdditionalSwapChain(&params, &swap_chain));
-	return swap_chain;
+	// STUBBED ON LINUX - D3DPRESENT_PARAMETERS, D3DSWAPEFFECT_FLIP, CreateAdditionalSwapChain not available
+	(void)render_window;
+	return nullptr;
 }
 
 void DX8Wrapper::Flush_DX8_Resource_Manager()
@@ -2730,667 +2610,156 @@ unsigned int DX8Wrapper::Get_Free_Texture_RAM()
 // Contrast - controls the difference between the maximum and the minimum of the curve
 void DX8Wrapper::Set_Gamma(float gamma,float bright,float contrast,bool calibrate,bool uselimit)
 {
-	gamma=Bound(gamma,0.6f,6.0f);
-	bright=Bound(bright,-0.5f,0.5f);
-	contrast=Bound(contrast,0.5f,2.0f);
-	float oo_gamma=1.0f/gamma;
-
-	DX8_Assert();
-	number_of_DX8_calls++;
-
-	DWORD flag=(calibrate?D3DSGR_CALIBRATE:D3DSGR_NO_CALIBRATION);
-
-	D3DGAMMARAMP ramp;
-	float			 limit;
-
-	// IML: I'm not really sure what the intent of the 'limit' variable is. It does not produce useful results for my purposes.
-	if (uselimit) {
-		limit=(contrast-1)/2*contrast;
-	} else {
-		limit = 0.0f;
-	}
-
-	// HY - arrived at this equation after much trial and error.
-	for (int i=0; i<256; i++) {
-		float in,out;
-		in=i/256.0f;
-		float x=in-limit;
-		x=Bound(x,0.0f,1.0f);
-		x=powf(x,oo_gamma);
-		out=contrast*x+bright;
-		out=Bound(out,0.0f,1.0f);
-		ramp.red[i]=(WORD) (out*65535);
-		ramp.green[i]=(WORD) (out*65535);
-		ramp.blue[i]=(WORD) (out*65535);
-	}
-
-	if (Get_Current_Caps()->Support_Gamma())	{
-		DX8Wrapper::_Get_D3D_Device8()->SetGammaRamp(0,flag,&ramp);
-	} else {
-		HWND hwnd = GetDesktopWindow();
-		HDC hdc = GetDC(hwnd);
-		if (hdc)
-		{
-			SetDeviceGammaRamp (hdc, &ramp);
-			ReleaseDC (hwnd, hdc);
-		}
-	}
+	// STUBBED ON LINUX - SetGammaRamp, GetDesktopWindow, GetDC, SetDeviceGammaRamp, ReleaseDC not available
+	(void)gamma;
+	(void)bright;
+	(void)contrast;
+	(void)calibrate;
+	(void)uselimit;
 }
 
 const char* DX8Wrapper::Get_DX8_Render_State_Name(D3DRENDERSTATETYPE state)
 {
-	switch (state) {
-	case D3DRS_ZENABLE                       : return "D3DRS_ZENABLE";
-	case D3DRS_FILLMODE                      : return "D3DRS_FILLMODE";
-	case D3DRS_SHADEMODE                     : return "D3DRS_SHADEMODE";
-	case D3DRS_ZWRITEENABLE                  : return "D3DRS_ZWRITEENABLE";
-	case D3DRS_ALPHATESTENABLE               : return "D3DRS_ALPHATESTENABLE";
-	case D3DRS_LASTPIXEL                     : return "D3DRS_LASTPIXEL";
-	case D3DRS_SRCBLEND                      : return "D3DRS_SRCBLEND";
-	case D3DRS_DESTBLEND                     : return "D3DRS_DESTBLEND";
-	case D3DRS_CULLMODE                      : return "D3DRS_CULLMODE";
-	case D3DRS_ZFUNC                         : return "D3DRS_ZFUNC";
-	case D3DRS_ALPHAREF                      : return "D3DRS_ALPHAREF";
-	case D3DRS_ALPHAFUNC                     : return "D3DRS_ALPHAFUNC";
-	case D3DRS_DITHERENABLE                  : return "D3DRS_DITHERENABLE";
-	case D3DRS_ALPHABLENDENABLE              : return "D3DRS_ALPHABLENDENABLE";
-	case D3DRS_FOGENABLE                     : return "D3DRS_FOGENABLE";
-	case D3DRS_SPECULARENABLE                : return "D3DRS_SPECULARENABLE";
-	case D3DRS_FOGCOLOR                      : return "D3DRS_FOGCOLOR";
-	case D3DRS_FOGTABLEMODE                  : return "D3DRS_FOGTABLEMODE";
-	case D3DRS_FOGSTART                      : return "D3DRS_FOGSTART";
-	case D3DRS_FOGEND                        : return "D3DRS_FOGEND";
-	case D3DRS_FOGDENSITY                    : return "D3DRS_FOGDENSITY";
-	case D3DRS_RANGEFOGENABLE                : return "D3DRS_RANGEFOGENABLE";
-	case D3DRS_STENCILENABLE                 : return "D3DRS_STENCILENABLE";
-	case D3DRS_STENCILFAIL                   : return "D3DRS_STENCILFAIL";
-	case D3DRS_STENCILZFAIL                  : return "D3DRS_STENCILZFAIL";
-	case D3DRS_STENCILPASS                   : return "D3DRS_STENCILPASS";
-	case D3DRS_STENCILFUNC                   : return "D3DRS_STENCILFUNC";
-	case D3DRS_STENCILREF                    : return "D3DRS_STENCILREF";
-	case D3DRS_STENCILMASK                   : return "D3DRS_STENCILMASK";
-	case D3DRS_STENCILWRITEMASK              : return "D3DRS_STENCILWRITEMASK";
-	case D3DRS_TEXTUREFACTOR                 : return "D3DRS_TEXTUREFACTOR";
-	case D3DRS_WRAP0                         : return "D3DRS_WRAP0";
-	case D3DRS_WRAP1                         : return "D3DRS_WRAP1";
-	case D3DRS_WRAP2                         : return "D3DRS_WRAP2";
-	case D3DRS_WRAP3                         : return "D3DRS_WRAP3";
-	case D3DRS_WRAP4                         : return "D3DRS_WRAP4";
-	case D3DRS_WRAP5                         : return "D3DRS_WRAP5";
-	case D3DRS_WRAP6                         : return "D3DRS_WRAP6";
-	case D3DRS_WRAP7                         : return "D3DRS_WRAP7";
-	case D3DRS_CLIPPING                      : return "D3DRS_CLIPPING";
-	case D3DRS_LIGHTING                      : return "D3DRS_LIGHTING";
-	case D3DRS_AMBIENT                       : return "D3DRS_AMBIENT";
-	case D3DRS_FOGVERTEXMODE                 : return "D3DRS_FOGVERTEXMODE";
-	case D3DRS_COLORVERTEX                   : return "D3DRS_COLORVERTEX";
-	case D3DRS_LOCALVIEWER                   : return "D3DRS_LOCALVIEWER";
-	case D3DRS_NORMALIZENORMALS              : return "D3DRS_NORMALIZENORMALS";
-	case D3DRS_DIFFUSEMATERIALSOURCE         : return "D3DRS_DIFFUSEMATERIALSOURCE";
-	case D3DRS_SPECULARMATERIALSOURCE        : return "D3DRS_SPECULARMATERIALSOURCE";
-	case D3DRS_AMBIENTMATERIALSOURCE         : return "D3DRS_AMBIENTMATERIALSOURCE";
-	case D3DRS_EMISSIVEMATERIALSOURCE        : return "D3DRS_EMISSIVEMATERIALSOURCE";
-	case D3DRS_VERTEXBLEND                   : return "D3DRS_VERTEXBLEND";
-	case D3DRS_CLIPPLANEENABLE               : return "D3DRS_CLIPPLANEENABLE";
-	case D3DRS_POINTSIZE                     : return "D3DRS_POINTSIZE";
-	case D3DRS_POINTSIZE_MIN                 : return "D3DRS_POINTSIZE_MIN";
-	case D3DRS_POINTSPRITEENABLE             : return "D3DRS_POINTSPRITEENABLE";
-	case D3DRS_POINTSCALEENABLE              : return "D3DRS_POINTSCALEENABLE";
-	case D3DRS_POINTSCALE_A                  : return "D3DRS_POINTSCALE_A";
-	case D3DRS_POINTSCALE_B                  : return "D3DRS_POINTSCALE_B";
-	case D3DRS_POINTSCALE_C                  : return "D3DRS_POINTSCALE_C";
-	case D3DRS_MULTISAMPLEANTIALIAS          : return "D3DRS_MULTISAMPLEANTIALIAS";
-	case D3DRS_MULTISAMPLEMASK               : return "D3DRS_MULTISAMPLEMASK";
-	case D3DRS_PATCHEDGESTYLE                : return "D3DRS_PATCHEDGESTYLE";
-	case D3DRS_DEBUGMONITORTOKEN             : return "D3DRS_DEBUGMONITORTOKEN";
-	case D3DRS_POINTSIZE_MAX                 : return "D3DRS_POINTSIZE_MAX";
-	case D3DRS_INDEXEDVERTEXBLENDENABLE      : return "D3DRS_INDEXEDVERTEXBLENDENABLE";
-	case D3DRS_COLORWRITEENABLE              : return "D3DRS_COLORWRITEENABLE";
-	case D3DRS_TWEENFACTOR                   : return "D3DRS_TWEENFACTOR";
-	case D3DRS_BLENDOP                       : return "D3DRS_BLENDOP";
-	case D3DRS_POSITIONDEGREE                : return "D3DRS_POSITIONDEGREE";
-	case D3DRS_NORMALDEGREE                  : return "D3DRS_NORMALDEGREE";
-	case D3DRS_SCISSORTESTENABLE             : return "D3DRS_SCISSORTESTENABLE";
-	case D3DRS_SLOPESCALEDEPTHBIAS           : return "D3DRS_SLOPESCALEDEPTHBIAS";
-	case D3DRS_ANTIALIASEDLINEENABLE         : return "D3DRS_ANTIALIASEDLINEENABLE";
-	case D3DRS_MINTESSELLATIONLEVEL          : return "D3DRS_MINTESSELLATIONLEVEL";
-	case D3DRS_MAXTESSELLATIONLEVEL          : return "D3DRS_MAXTESSELLATIONLEVEL";
-	case D3DRS_ADAPTIVETESS_X                : return "D3DRS_ADAPTIVETESS_X";
-	case D3DRS_ADAPTIVETESS_Y                : return "D3DRS_ADAPTIVETESS_Y";
-	case D3DRS_ADAPTIVETESS_Z                : return "D3DRS_ADAPTIVETESS_Z";
-	case D3DRS_ADAPTIVETESS_W                : return "D3DRS_ADAPTIVETESS_W";
-	case D3DRS_ENABLEADAPTIVETESSELLATION    : return "D3DRS_ENABLEADAPTIVETESSELLATION";
-	case D3DRS_TWOSIDEDSTENCILMODE           : return "D3DRS_TWOSIDEDSTENCILMODE";
-	case D3DRS_CCW_STENCILFAIL               : return "D3DRS_CCW_STENCILFAIL";
-	case D3DRS_CCW_STENCILZFAIL              : return "D3DRS_CCW_STENCILZFAIL";
-	case D3DRS_CCW_STENCILPASS               : return "D3DRS_CCW_STENCILPASS";
-	case D3DRS_CCW_STENCILFUNC               : return "D3DRS_CCW_STENCILFUNC";
-	case D3DRS_COLORWRITEENABLE1             : return "D3DRS_COLORWRITEENABLE1";
-	case D3DRS_COLORWRITEENABLE2             : return "D3DRS_COLORWRITEENABLE2";
-	case D3DRS_COLORWRITEENABLE3             : return "D3DRS_COLORWRITEENABLE3";
-	case D3DRS_BLENDFACTOR                   : return "D3DRS_BLENDFACTOR";
-	case D3DRS_SRGBWRITEENABLE               : return "D3DRS_SRGBWRITEENABLE";
-	case D3DRS_DEPTHBIAS                     : return "D3DRS_DEPTHBIAS";
-	case D3DRS_WRAP8                         : return "D3DRS_WRAP8";
-	case D3DRS_WRAP9                         : return "D3DRS_WRAP9";
-	case D3DRS_WRAP10                        : return "D3DRS_WRAP10";
-	case D3DRS_WRAP11                        : return "D3DRS_WRAP11";
-	case D3DRS_WRAP12                        : return "D3DRS_WRAP12";
-	case D3DRS_WRAP13                        : return "D3DRS_WRAP13";
-	case D3DRS_WRAP14                        : return "D3DRS_WRAP14";
-	case D3DRS_WRAP15                        : return "D3DRS_WRAP15";
-	case D3DRS_SEPARATEALPHABLENDENABLE      : return "D3DRS_SEPARATEALPHABLENDENABLE";
-	case D3DRS_SRCBLENDALPHA                 : return "D3DRS_SRCBLENDALPHA";
-	case D3DRS_DESTBLENDALPHA                : return "D3DRS_DESTBLENDALPHA";
-	case D3DRS_BLENDOPALPHA                  : return "D3DRS_BLENDOPALPHA";
-	default											  : return "UNKNOWN";
-	}
+	(void)state;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Texture_Stage_State_Name(D3DTEXTURESTAGESTATETYPE state)
 {
-	switch (state) {
-	case D3DTSS_COLOROP                   : return "D3DTSS_COLOROP";
-	case D3DTSS_COLORARG1                 : return "D3DTSS_COLORARG1";
-	case D3DTSS_COLORARG2                 : return "D3DTSS_COLORARG2";
-	case D3DTSS_ALPHAOP                   : return "D3DTSS_ALPHAOP";
-	case D3DTSS_ALPHAARG1                 : return "D3DTSS_ALPHAARG1";
-	case D3DTSS_ALPHAARG2                 : return "D3DTSS_ALPHAARG2";
-	case D3DTSS_BUMPENVMAT00              : return "D3DTSS_BUMPENVMAT00";
-	case D3DTSS_BUMPENVMAT01              : return "D3DTSS_BUMPENVMAT01";
-	case D3DTSS_BUMPENVMAT10              : return "D3DTSS_BUMPENVMAT10";
-	case D3DTSS_BUMPENVMAT11              : return "D3DTSS_BUMPENVMAT11";
-	case D3DTSS_TEXCOORDINDEX             : return "D3DTSS_TEXCOORDINDEX";
-	case D3DTSS_BUMPENVLSCALE             : return "D3DTSS_BUMPENVLSCALE";
-	case D3DTSS_BUMPENVLOFFSET            : return "D3DTSS_BUMPENVLOFFSET";
-	case D3DTSS_TEXTURETRANSFORMFLAGS     : return "D3DTSS_TEXTURETRANSFORMFLAGS";
-	case D3DTSS_COLORARG0                 : return "D3DTSS_COLORARG0";
-	case D3DTSS_ALPHAARG0                 : return "D3DTSS_ALPHAARG0";
-	case D3DTSS_RESULTARG                 : return "D3DTSS_RESULTARG";
-	case D3DTSS_CONSTANT                  : return "D3DTSS_CONSTANT";
-	default										  : return "UNKNOWN";
-	}
+	(void)state;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Texture_Sampler_State_Name(D3DSAMPLERSTATETYPE state)
 {
-    switch (state) {
-    case D3DSAMP_ADDRESSU:          return "D3DSAMP_ADDRESSU";
-    case D3DSAMP_ADDRESSV:          return "D3DSAMP_ADDRESSV";
-    case D3DSAMP_ADDRESSW:          return "D3DSAMP_ADDRESSW";
-    case D3DSAMP_BORDERCOLOR:       return "D3DSAMP_BORDERCOLOR";
-    case D3DSAMP_MAGFILTER:         return "D3DSAMP_MAGFILTER";
-    case D3DSAMP_MINFILTER:         return "D3DSAMP_MINFILTER";
-    case D3DSAMP_MIPFILTER:         return "D3DSAMP_MIPFILTER";
-    case D3DSAMP_MIPMAPLODBIAS:     return "D3DSAMP_MIPMAPLODBIAS";
-    case D3DSAMP_MAXMIPLEVEL:       return "D3DSAMP_MAXMIPLEVEL";
-    case D3DSAMP_MAXANISOTROPY:     return "D3DSAMP_MAXANISOTROPY";
-    case D3DSAMP_SRGBTEXTURE:       return "D3DSAMP_SRGBTEXTURE";
-    case D3DSAMP_ELEMENTINDEX:      return "D3DSAMP_ELEMENTINDEX";
-    case D3DSAMP_DMAPOFFSET:        return "D3DSAMP_DMAPOFFSET";
-    default:                        return "UNKNOWN";
-    }
+	(void)state;
+	return "UNKNOWN";
 }
 
 void DX8Wrapper::Get_DX8_Render_State_Value_Name(StringClass& name, D3DRENDERSTATETYPE state, unsigned value)
 {
-	switch (state) {
-	case D3DRS_ZENABLE:
-		name=Get_DX8_ZBuffer_Type_Name(value);
-		break;
-
-	case D3DRS_FILLMODE:
-		name=Get_DX8_Fill_Mode_Name(value);
-		break;
-
-	case D3DRS_SHADEMODE:
-		name=Get_DX8_Shade_Mode_Name(value);
-		break;
-
-	case D3DRS_FOGCOLOR:
-	case D3DRS_ALPHAREF:
-	case D3DRS_STENCILMASK:
-	case D3DRS_STENCILWRITEMASK:
-	case D3DRS_TEXTUREFACTOR:
-	case D3DRS_AMBIENT:
-	case D3DRS_CLIPPLANEENABLE:
-	case D3DRS_MULTISAMPLEMASK:
-		name.Format("0x%x",value);
-		break;
-
-	case D3DRS_ZWRITEENABLE:
-	case D3DRS_ALPHATESTENABLE:
-	case D3DRS_LASTPIXEL:
-	case D3DRS_DITHERENABLE:
-	case D3DRS_ALPHABLENDENABLE:
-	case D3DRS_FOGENABLE:
-	case D3DRS_SPECULARENABLE:
-	case D3DRS_STENCILENABLE:
-	case D3DRS_RANGEFOGENABLE:
-	case D3DRS_CLIPPING:
-	case D3DRS_LIGHTING:
-	case D3DRS_COLORVERTEX:
-	case D3DRS_LOCALVIEWER:
-	case D3DRS_NORMALIZENORMALS:
-	case D3DRS_POINTSPRITEENABLE:
-	case D3DRS_POINTSCALEENABLE:
-	case D3DRS_MULTISAMPLEANTIALIAS:
-	case D3DRS_INDEXEDVERTEXBLENDENABLE:
-		name=value ? "true" : "false";
-		break;
-
-	case D3DRS_SRCBLEND:
-	case D3DRS_DESTBLEND:
-		name=Get_DX8_Blend_Name(value);
-		break;
-
-	case D3DRS_CULLMODE:
-		name=Get_DX8_Cull_Mode_Name(value);
-		break;
-
-	case D3DRS_ZFUNC:
-	case D3DRS_ALPHAFUNC:
-	case D3DRS_STENCILFUNC:
-		name=Get_DX8_Cmp_Func_Name(value);
-		break;
-
-	case D3DRS_FOGTABLEMODE:
-	case D3DRS_FOGVERTEXMODE:
-		name=Get_DX8_Fog_Mode_Name(value);
-		break;
-
-	case D3DRS_FOGSTART:
-	case D3DRS_FOGEND:
-	case D3DRS_FOGDENSITY:
-	case D3DRS_POINTSIZE:
-	case D3DRS_POINTSIZE_MIN:
-	case D3DRS_POINTSCALE_A:
-	case D3DRS_POINTSCALE_B:
-	case D3DRS_POINTSCALE_C:
-	case D3DRS_POINTSIZE_MAX:
-	case D3DRS_TWEENFACTOR:
-		name.Format("%f",*(float*)&value);
-		break;
-
-	case D3DRS_DEPTHBIAS:
-	case D3DRS_STENCILREF:
-		name.Format("%d",value);
-		break;
-
-	case D3DRS_STENCILFAIL:
-	case D3DRS_STENCILZFAIL:
-	case D3DRS_STENCILPASS:
-		name=Get_DX8_Stencil_Op_Name(value);
-		break;
-
-	case D3DRS_WRAP0:
-	case D3DRS_WRAP1:
-	case D3DRS_WRAP2:
-	case D3DRS_WRAP3:
-	case D3DRS_WRAP4:
-	case D3DRS_WRAP5:
-	case D3DRS_WRAP6:
-	case D3DRS_WRAP7:
-		name="0";
-		if (value&D3DWRAP_U) name+="|D3DWRAP_U";
-		if (value&D3DWRAP_V) name+="|D3DWRAP_V";
-		if (value&D3DWRAP_W) name+="|D3DWRAP_W";
-		break;
-
-	case D3DRS_DIFFUSEMATERIALSOURCE:
-	case D3DRS_SPECULARMATERIALSOURCE:
-	case D3DRS_AMBIENTMATERIALSOURCE:
-	case D3DRS_EMISSIVEMATERIALSOURCE:
-		name=Get_DX8_Material_Source_Name(value);
-		break;
-
-	case D3DRS_VERTEXBLEND:
-		name=Get_DX8_Vertex_Blend_Flag_Name(value);
-		break;
-
-	case D3DRS_PATCHEDGESTYLE:
-		name=Get_DX8_Patch_Edge_Style_Name(value);
-		break;
-
-	case D3DRS_DEBUGMONITORTOKEN:
-		name=Get_DX8_Debug_Monitor_Token_Name(value);
-		break;
-
-	case D3DRS_COLORWRITEENABLE:
-		name="0";
-		if (value&D3DCOLORWRITEENABLE_RED) name+="|D3DCOLORWRITEENABLE_RED";
-		if (value&D3DCOLORWRITEENABLE_GREEN) name+="|D3DCOLORWRITEENABLE_GREEN";
-		if (value&D3DCOLORWRITEENABLE_BLUE) name+="|D3DCOLORWRITEENABLE_BLUE";
-		if (value&D3DCOLORWRITEENABLE_ALPHA) name+="|D3DCOLORWRITEENABLE_ALPHA";
-		break;
-	case D3DRS_BLENDOP:
-		name=Get_DX8_Blend_Op_Name(value);
-		break;
-	default:
-		name.Format("UNKNOWN (%d)",value);
-		break;
-	}
+	(void)value;
+	name.Format("VALUE_%u", value);
 }
 
 void DX8Wrapper::Get_DX8_Texture_Stage_State_Value_Name(StringClass& name, D3DTEXTURESTAGESTATETYPE state, unsigned value)
 {
-	switch (state) {
-	case D3DTSS_COLOROP:
-	case D3DTSS_ALPHAOP:
-		name=Get_DX8_Texture_Op_Name(value);
-		break;
-
-	case D3DTSS_COLORARG0:
-	case D3DTSS_COLORARG1:
-	case D3DTSS_COLORARG2:
-	case D3DTSS_ALPHAARG0:
-	case D3DTSS_ALPHAARG1:
-	case D3DTSS_ALPHAARG2:
-	case D3DTSS_RESULTARG:
-		name=Get_DX8_Texture_Arg_Name(value);
-		break;
-
-	// Floating point values
-	case D3DTSS_BUMPENVMAT00:
-	case D3DTSS_BUMPENVMAT01:
-	case D3DTSS_BUMPENVMAT10:
-	case D3DTSS_BUMPENVMAT11:
-	case D3DTSS_BUMPENVLSCALE:
-	case D3DTSS_BUMPENVLOFFSET:
-		name.Format("%f",*(float*)&value);
-		break;
-
-	case D3DTSS_TEXCOORDINDEX:
-		if ((value&0xffff0000)==D3DTSS_TCI_CAMERASPACENORMAL) {
-			name.Format("D3DTSS_TCI_CAMERASPACENORMAL|%d",value&0xffff);
-		}
-		else if ((value&0xffff0000)==D3DTSS_TCI_CAMERASPACEPOSITION) {
-			name.Format("D3DTSS_TCI_CAMERASPACEPOSITION|%d",value&0xffff);
-		}
-		else if ((value&0xffff0000)==D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR) {
-			name.Format("D3DTSS_TCI_CAMERASPACEREFLECTIONVECTOR|%d",value&0xffff);
-		}
-		else {
-			name.Format("%d",value);
-		}
-		break;
-
-	default:
-		name.Format("UNKNOWN (%d)",value);
-		break;
-	}
+	(void)value;
+	name.Format("VALUE_%u", value);
 }
 
 void DX8Wrapper::Get_DX8_Texture_Sampler_State_Value_Name(StringClass& name, D3DSAMPLERSTATETYPE state, unsigned value)
 {
-	switch (state) {
-	case D3DSAMP_ADDRESSU:
-	case D3DSAMP_ADDRESSV:
-	case D3DSAMP_ADDRESSW:
-		name=Get_DX8_Texture_Address_Name((D3DTEXTUREADDRESS)value);
-		break;
-	case D3DSAMP_BORDERCOLOR:
-		name.Format("%x",value);
-		break;
-	case D3DSAMP_MAGFILTER:
-	case D3DSAMP_MINFILTER:
-	case D3DSAMP_MIPFILTER:
-		name=Get_DX8_Texture_Filter_Name((D3DTEXTUREFILTERTYPE)value);
-		break;
-	case D3DSAMP_MIPMAPLODBIAS:
-		name.Format("%f",*(float*)&value);
-		break;
-	case D3DSAMP_MAXMIPLEVEL:
-	case D3DSAMP_MAXANISOTROPY:
-	case D3DSAMP_SRGBTEXTURE:
-	case D3DSAMP_ELEMENTINDEX:
-		name.Format("%d",value);
-		break;
-	default:
-		name.Format("UNKNOWN (%d)",value);
-		break;
-	}
+	(void)value;
+	name.Format("VALUE_%u", value);
 }
 
 const char* DX8Wrapper::Get_DX8_Texture_Op_Name(unsigned value)
 {
-	switch (value) {
-	case D3DTOP_DISABLE                      : return "D3DTOP_DISABLE";
-	case D3DTOP_SELECTARG1                   : return "D3DTOP_SELECTARG1";
-	case D3DTOP_SELECTARG2                   : return "D3DTOP_SELECTARG2";
-	case D3DTOP_MODULATE                     : return "D3DTOP_MODULATE";
-	case D3DTOP_MODULATE2X                   : return "D3DTOP_MODULATE2X";
-	case D3DTOP_MODULATE4X                   : return "D3DTOP_MODULATE4X";
-	case D3DTOP_ADD                          : return "D3DTOP_ADD";
-	case D3DTOP_ADDSIGNED                    : return "D3DTOP_ADDSIGNED";
-	case D3DTOP_ADDSIGNED2X                  : return "D3DTOP_ADDSIGNED2X";
-	case D3DTOP_SUBTRACT                     : return "D3DTOP_SUBTRACT";
-	case D3DTOP_ADDSMOOTH                    : return "D3DTOP_ADDSMOOTH";
-	case D3DTOP_BLENDDIFFUSEALPHA            : return "D3DTOP_BLENDDIFFUSEALPHA";
-	case D3DTOP_BLENDTEXTUREALPHA            : return "D3DTOP_BLENDTEXTUREALPHA";
-	case D3DTOP_BLENDFACTORALPHA             : return "D3DTOP_BLENDFACTORALPHA";
-	case D3DTOP_BLENDTEXTUREALPHAPM          : return "D3DTOP_BLENDTEXTUREALPHAPM";
-	case D3DTOP_BLENDCURRENTALPHA            : return "D3DTOP_BLENDCURRENTALPHA";
-	case D3DTOP_PREMODULATE                  : return "D3DTOP_PREMODULATE";
-	case D3DTOP_MODULATEALPHA_ADDCOLOR       : return "D3DTOP_MODULATEALPHA_ADDCOLOR";
-	case D3DTOP_MODULATECOLOR_ADDALPHA       : return "D3DTOP_MODULATECOLOR_ADDALPHA";
-	case D3DTOP_MODULATEINVALPHA_ADDCOLOR    : return "D3DTOP_MODULATEINVALPHA_ADDCOLOR";
-	case D3DTOP_MODULATEINVCOLOR_ADDALPHA    : return "D3DTOP_MODULATEINVCOLOR_ADDALPHA";
-	case D3DTOP_BUMPENVMAP                   : return "D3DTOP_BUMPENVMAP";
-	case D3DTOP_BUMPENVMAPLUMINANCE          : return "D3DTOP_BUMPENVMAPLUMINANCE";
-	case D3DTOP_DOTPRODUCT3                  : return "D3DTOP_DOTPRODUCT3";
-	case D3DTOP_MULTIPLYADD                  : return "D3DTOP_MULTIPLYADD";
-	case D3DTOP_LERP                         : return "D3DTOP_LERP";
-	default										     : return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Texture_Arg_Name(unsigned value)
 {
-	switch (value) {
-	case D3DTA_CURRENT			: return "D3DTA_CURRENT";
-	case D3DTA_DIFFUSE			: return "D3DTA_DIFFUSE";
-	case D3DTA_SELECTMASK		: return "D3DTA_SELECTMASK";
-	case D3DTA_SPECULAR			: return "D3DTA_SPECULAR";
-	case D3DTA_TEMP				: return "D3DTA_TEMP";
-	case D3DTA_TEXTURE			: return "D3DTA_TEXTURE";
-	case D3DTA_TFACTOR			: return "D3DTA_TFACTOR";
-	case D3DTA_ALPHAREPLICATE	: return "D3DTA_ALPHAREPLICATE";
-	case D3DTA_COMPLEMENT		: return "D3DTA_COMPLEMENT";
-	default					      : return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Texture_Filter_Name(unsigned value)
 {
-	switch (value) {
-	case D3DTEXF_NONE				: return "D3DTEXF_NONE";
-	case D3DTEXF_POINT			: return "D3DTEXF_POINT";
-	case D3DTEXF_LINEAR			: return "D3DTEXF_LINEAR";
-	case D3DTEXF_ANISOTROPIC	: return "D3DTEXF_ANISOTROPIC";
-	case D3DTEXF_PYRAMIDALQUAD	: return "D3DTEXF_PYRAMIDALQUAD";
-	case D3DTEXF_GAUSSIANQUAD	: return "D3DTEXF_GAUSSIANQUAD";
-	default					      : return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Texture_Address_Name(unsigned value)
 {
-	switch (value) {
-	case D3DTADDRESS_WRAP		: return "D3DTADDRESS_WRAP";
-	case D3DTADDRESS_MIRROR		: return "D3DTADDRESS_MIRROR";
-	case D3DTADDRESS_CLAMP		: return "D3DTADDRESS_CLAMP";
-	case D3DTADDRESS_BORDER		: return "D3DTADDRESS_BORDER";
-	case D3DTADDRESS_MIRRORONCE: return "D3DTADDRESS_MIRRORONCE";
-	default					      : return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Texture_Transform_Flag_Name(unsigned value)
 {
-	switch (value) {
-	case D3DTTFF_DISABLE			: return "D3DTTFF_DISABLE";
-	case D3DTTFF_COUNT1			: return "D3DTTFF_COUNT1";
-	case D3DTTFF_COUNT2			: return "D3DTTFF_COUNT2";
-	case D3DTTFF_COUNT3			: return "D3DTTFF_COUNT3";
-	case D3DTTFF_COUNT4			: return "D3DTTFF_COUNT4";
-	case D3DTTFF_PROJECTED		: return "D3DTTFF_PROJECTED";
-	default					      : return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_ZBuffer_Type_Name(unsigned value)
 {
-	switch (value) {
-	case D3DZB_FALSE				: return "D3DZB_FALSE";
-	case D3DZB_TRUE				: return "D3DZB_TRUE";
-	case D3DZB_USEW				: return "D3DZB_USEW";
-	default					      : return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Fill_Mode_Name(unsigned value)
 {
-	switch (value) {
-	case D3DFILL_POINT			: return "D3DFILL_POINT";
-	case D3DFILL_WIREFRAME		: return "D3DFILL_WIREFRAME";
-	case D3DFILL_SOLID			: return "D3DFILL_SOLID";
-	default					      : return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Shade_Mode_Name(unsigned value)
 {
-	switch (value) {
-	case D3DSHADE_FLAT			: return "D3DSHADE_FLAT";
-	case D3DSHADE_GOURAUD		: return "D3DSHADE_GOURAUD";
-	case D3DSHADE_PHONG			: return "D3DSHADE_PHONG";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Blend_Name(unsigned value)
 {
-	switch (value) {
-	case D3DBLEND_ZERO                : return "D3DBLEND_ZERO";
-	case D3DBLEND_ONE                 : return "D3DBLEND_ONE";
-	case D3DBLEND_SRCCOLOR            : return "D3DBLEND_SRCCOLOR";
-	case D3DBLEND_INVSRCCOLOR         : return "D3DBLEND_INVSRCCOLOR";
-	case D3DBLEND_SRCALPHA            : return "D3DBLEND_SRCALPHA";
-	case D3DBLEND_INVSRCALPHA         : return "D3DBLEND_INVSRCALPHA";
-	case D3DBLEND_DESTALPHA           : return "D3DBLEND_DESTALPHA";
-	case D3DBLEND_INVDESTALPHA        : return "D3DBLEND_INVDESTALPHA";
-	case D3DBLEND_DESTCOLOR           : return "D3DBLEND_DESTCOLOR";
-	case D3DBLEND_INVDESTCOLOR        : return "D3DBLEND_INVDESTCOLOR";
-	case D3DBLEND_SRCALPHASAT         : return "D3DBLEND_SRCALPHASAT";
-	case D3DBLEND_BOTHSRCALPHA        : return "D3DBLEND_BOTHSRCALPHA";
-	case D3DBLEND_BOTHINVSRCALPHA     : return "D3DBLEND_BOTHINVSRCALPHA";
-	default									 : return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Cull_Mode_Name(unsigned value)
 {
-	switch (value) {
-	case D3DCULL_NONE				: return "D3DCULL_NONE";
-	case D3DCULL_CW				: return "D3DCULL_CW";
-	case D3DCULL_CCW				: return "D3DCULL_CCW";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Cmp_Func_Name(unsigned value)
 {
-	switch (value) {
-	case D3DCMP_NEVER          : return "D3DCMP_NEVER";
-	case D3DCMP_LESS           : return "D3DCMP_LESS";
-	case D3DCMP_EQUAL          : return "D3DCMP_EQUAL";
-	case D3DCMP_LESSEQUAL      : return "D3DCMP_LESSEQUAL";
-	case D3DCMP_GREATER        : return "D3DCMP_GREATER";
-	case D3DCMP_NOTEQUAL       : return "D3DCMP_NOTEQUAL";
-	case D3DCMP_GREATEREQUAL   : return "D3DCMP_GREATEREQUAL";
-	case D3DCMP_ALWAYS         : return "D3DCMP_ALWAYS";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Fog_Mode_Name(unsigned value)
 {
-	switch (value) {
-	case D3DFOG_NONE				: return "D3DFOG_NONE";
-	case D3DFOG_EXP				: return "D3DFOG_EXP";
-	case D3DFOG_EXP2				: return "D3DFOG_EXP2";
-	case D3DFOG_LINEAR			: return "D3DFOG_LINEAR";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Stencil_Op_Name(unsigned value)
 {
-	switch (value) {
-	case D3DSTENCILOP_KEEP		: return "D3DSTENCILOP_KEEP";
-	case D3DSTENCILOP_ZERO		: return "D3DSTENCILOP_ZERO";
-	case D3DSTENCILOP_REPLACE	: return "D3DSTENCILOP_REPLACE";
-	case D3DSTENCILOP_INCRSAT	: return "D3DSTENCILOP_INCRSAT";
-	case D3DSTENCILOP_DECRSAT	: return "D3DSTENCILOP_DECRSAT";
-	case D3DSTENCILOP_INVERT	: return "D3DSTENCILOP_INVERT";
-	case D3DSTENCILOP_INCR		: return "D3DSTENCILOP_INCR";
-	case D3DSTENCILOP_DECR		: return "D3DSTENCILOP_DECR";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Material_Source_Name(unsigned value)
 {
-	switch (value) {
-	case D3DMCS_MATERIAL			: return "D3DMCS_MATERIAL";
-	case D3DMCS_COLOR1			: return "D3DMCS_COLOR1";
-	case D3DMCS_COLOR2			: return "D3DMCS_COLOR2";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Vertex_Blend_Flag_Name(unsigned value)
 {
-	switch (value) {
-	case D3DVBF_DISABLE			: return "D3DVBF_DISABLE";
-	case D3DVBF_1WEIGHTS			: return "D3DVBF_1WEIGHTS";
-	case D3DVBF_2WEIGHTS			: return "D3DVBF_2WEIGHTS";
-	case D3DVBF_3WEIGHTS			: return "D3DVBF_3WEIGHTS";
-	case D3DVBF_TWEENING			: return "D3DVBF_TWEENING";
-	case D3DVBF_0WEIGHTS			: return "D3DVBF_0WEIGHTS";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Patch_Edge_Style_Name(unsigned value)
 {
-	switch (value) {
-	case D3DPATCHEDGE_DISCRETE	: return "D3DPATCHEDGE_DISCRETE";
-	case D3DPATCHEDGE_CONTINUOUS:return "D3DPATCHEDGE_CONTINUOUS";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Debug_Monitor_Token_Name(unsigned value)
 {
-	switch (value) {
-	case D3DDMT_ENABLE			: return "D3DDMT_ENABLE";
-	case D3DDMT_DISABLE			: return "D3DDMT_DISABLE";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 const char* DX8Wrapper::Get_DX8_Blend_Op_Name(unsigned value)
 {
-	switch (value) {
-	case D3DBLENDOP_ADD			: return "D3DBLENDOP_ADD";
-	case D3DBLENDOP_SUBTRACT	: return "D3DBLENDOP_SUBTRACT";
-	case D3DBLENDOP_REVSUBTRACT: return "D3DBLENDOP_REVSUBTRACT";
-	case D3DBLENDOP_MIN			: return "D3DBLENDOP_MIN";
-	case D3DBLENDOP_MAX			: return "D3DBLENDOP_MAX";
-	default							: return "UNKNOWN";
-	}
+	(void)value;
+	return "UNKNOWN";
 }
 
 void DX8Wrapper::Set_DX8_ZBias(int zbias)

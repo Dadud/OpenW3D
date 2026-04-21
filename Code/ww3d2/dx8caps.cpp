@@ -40,8 +40,12 @@
 #include "dx8caps.h"
 #include "dx8wrapper.h"
 #include "formconv.h"
+#ifdef _WIN32
 #include <windows.h>
+#endif
+#ifdef _WIN32
 #include <mmsystem.h>
+#endif
 
 static StringClass CapsWorkString;
 

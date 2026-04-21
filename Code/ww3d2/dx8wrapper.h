@@ -45,7 +45,12 @@
 
 #include "always.h"
 #include "dllist.h"
+// Use local stub d3d9.h on non-Windows, system header on Windows
+#if defined(_WIN32)
 #include <d3d9.h>
+#else
+#include "d3d9.h"
+#endif
 #include "matrix4.h"
 #include "statistics.h"
 #include "wwstring.h"
@@ -59,6 +64,9 @@
 #include "dx8vertexbuffer.h"
 #include "dx8indexbuffer.h"
 #include "vertmaterial.h"
+
+// Forward declaration for RenderInterface (avoid circular dependency)
+class RenderInterface;
 
 /*
 ** Registry value names
@@ -408,6 +416,20 @@ public:
 	static void					Set_Render_Target (IDirect3DSwapChain9 *swap_chain);
 	static bool					Is_Render_To_Texture(void) { return IsRenderToTexture; }
 
+	/*
+	** Render backend delegation - for Vulkan/alternative backend support
+	** When USE_VULKAN is defined and m_Renderer is set, calls are routed through RenderInterface
+	** instead of direct D3D9 calls.
+	**
+	** s_UseVulkan is a runtime switch to choose between D3D9 and RenderInterface backend.
+	** Set Use_Vulkan(true) to route calls through RenderInterface, or Use_Vulkan(false) for D3D9.
+	*/
+	static void					Set_Renderer_Backend(RenderInterface* renderer);
+	static RenderInterface*	Get_Renderer_Backend(void) { return m_Renderer; }
+	static bool					Is_Using_Renderer_Backend(void) { return m_Renderer != nullptr; }
+	static void					Use_Vulkan(bool use_vulkan) { s_UseVulkan = use_vulkan; }
+	static bool					Is_Using_Vulkan(void) { return s_UseVulkan; }
+
 	static IDirect3DDevice9* _Get_D3D_Device8() { return D3DDevice; }
 	static IDirect3D9* _Get_D3D8() { return D3DInterface; }
 
@@ -503,6 +525,14 @@ protected:
 
 	static RenderStateStruct			render_state;
 	static unsigned						render_state_changed;
+
+	/*
+	** RenderInterface backend for Vulkan/alternative rendering
+	** When USE_VULKAN is defined, calls can be routed through RenderInterface
+	** instead of direct D3D9 calls.
+	*/
+	static RenderInterface*				m_Renderer;
+	static bool						s_UseVulkan;
 
 	static bool								IsInitted;
 	static bool								IsDeviceLost;

@@ -29,6 +29,7 @@ set(WW3D2_SRC
     dx8texman.cpp
     dx8vertexbuffer.cpp
     dx8wrapper.cpp
+    VulkanDX8Wrapper.cpp
     dynamesh.cpp
     font3d.cpp
     formconv.cpp
@@ -76,6 +77,7 @@ set(WW3D2_SRC
     render2d.cpp
     render2dsentence.cpp
     renderobjectrecycler.cpp
+    render/RenderInterface.cpp
     rendobj.cpp
     rinfo.cpp
     ringobj.cpp
@@ -182,6 +184,7 @@ set(WW3D2_SRC
     proto.h
     proxy.h
     rddesc.h
+    render/RenderInterface.h
     render2d.h
     render2dsentence.h
     renderobjectrecycler.h
@@ -230,6 +233,15 @@ target_link_libraries(ww3d2 PRIVATE
 )
 
 target_sources(ww3d2 PRIVATE ${WW3D2_SRC})
+
+# Vulkan rendering support
+# Define USE_VULKAN to enable RenderInterface backend delegation in DX8Wrapper
+# The VulkanDX8Wrapper class provides a full Vulkan implementation of the DX8 interface
+if (USE_VULKAN)
+    target_compile_definitions(ww3d2 PRIVATE USE_VULKAN)
+    target_include_directories(ww3d2 PRIVATE ${VULKAN_INCLUDE_DIRS})
+    target_link_libraries(ww3d2 PRIVATE ${VULKAN_LIBRARIES})
+endif()
 
 # This module needs building differently for the level editor
 if (W3D_TOOLS)

@@ -46,6 +46,7 @@
 #include "always.h"
 #endif
 
+#ifdef _WIN32
 #ifndef _WINDOWS_
 #include <windows.h>
 #endif
@@ -56,6 +57,7 @@
 
 #ifndef _INC_VFW
 #include <vfw.h>
+#endif
 #endif
 
 // FramGrab.h: interface for the FrameGrabClass class.
@@ -91,12 +93,17 @@ protected:
 	void GrabAVI(void *BitmapPointer);
 	void GrabRawFrame(void *BitmapPointer);
 
+#ifdef _WIN32
 	// avi settings
 	PAVIFILE				AVIFile;
 	int					*Bitmap;
 	PAVISTREAM			Stream;
 	AVISTREAMINFOA		AVIStreamInfo;
 	BITMAPINFOHEADER	BitmapInfoHeader;
+#else
+	// stub AVI settings for non-Windows
+	int					*Bitmap;
+#endif
 
 	// general purpose cleanup routine
 	void CleanupAVI();

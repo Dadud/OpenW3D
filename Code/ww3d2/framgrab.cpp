@@ -22,9 +22,13 @@
 
 #include "framgrab.h"
 #include <stdio.h>
+#ifdef _WIN32
 #include <io.h>
-//#include <errno.h>
+#else
+#include <unistd.h>
+#endif
 
+#ifdef _WIN32
 //////////////////////////////////////////////////////////////////////
 // Construction/Destruction
 //////////////////////////////////////////////////////////////////////
@@ -189,3 +193,63 @@ void FrameGrabClass::ConvertFrame(void *BitmapPointer)
 		}
 	}
 }
+
+#else // !_WIN32 - stub implementations for Linux
+
+// Stub implementations for non-Windows platforms
+// AVI capture functionality is not available on Linux
+
+FrameGrabClass::FrameGrabClass(const char *filename, MODE mode, int width, int height, int bitcount, float framerate)
+{
+	Mode = mode;
+	Filename = filename;
+	FrameRate = framerate;
+	Counter = 0;
+	Bitmap = nullptr;
+}
+
+FrameGrabClass::~FrameGrabClass()
+{
+	if(Bitmap != nullptr) {
+		delete[] Bitmap;
+		Bitmap = nullptr;
+	}
+}
+
+void FrameGrabClass::CleanupAVI() {
+	if(Bitmap != nullptr) {
+		delete[] Bitmap;
+		Bitmap = nullptr;
+	}
+	Mode = RAW;
+}
+
+void FrameGrabClass::GrabAVI(void * /*BitmapPointer*/)
+{
+	// AVI capture not available on Linux
+}
+
+void FrameGrabClass::GrabRawFrame(void * /*BitmapPointer*/)
+{
+	// RAW frame capture not implemented on Linux
+}
+
+void FrameGrabClass::ConvertGrab(void *BitmapPointer)
+{
+	// Conversion not available on Linux
+	(void)BitmapPointer;
+}
+
+void FrameGrabClass::Grab(void *BitmapPointer)
+{
+	(void)BitmapPointer;
+	// Grab not available on Linux
+}
+
+void FrameGrabClass::ConvertFrame(void *BitmapPointer)
+{
+	// Conversion not available on Linux
+	(void)BitmapPointer;
+}
+
+#endif // _WIN32

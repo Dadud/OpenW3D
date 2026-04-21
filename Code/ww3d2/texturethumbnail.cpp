@@ -29,7 +29,9 @@
 #include "rawfile.h"
 #include "mixfile.h"
 #include "wwdialog.h"
+#ifdef _WIN32
 #include <windows.h>
+#endif
 #include <climits>
 
 DLListClass<ThumbnailManagerClass> ThumbnailManagerClass::ThumbnailManagerList;
@@ -666,8 +668,11 @@ void ThumbnailManagerClass::Pre_Init(bool display_message_box)
 
 	StringClass cur_dir = cPathUtil::GetWorkingDirectory(true);
 	StringClass new_dir = cur_dir + "Data";
+#ifdef _WIN32
 	SetCurrentDirectoryA(new_dir);
+#endif
 
+#ifdef _WIN32
 	WIN32_FIND_DATAA find_data;
 	HANDLE handle=FindFirstFileA("*.mix",&find_data);
 	if (handle!=INVALID_HANDLE_VALUE) {
@@ -682,6 +687,7 @@ void ThumbnailManagerClass::Pre_Init(bool display_message_box)
 		}
 	}
 	SetCurrentDirectoryA(cur_dir);
+#endif
 
 	// First generate thumbnails for always.dat
 	Update_Thumbnail_File("always.dat",display_message_box);

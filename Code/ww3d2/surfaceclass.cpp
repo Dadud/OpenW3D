@@ -54,7 +54,11 @@
 #include "vector2i.h"
 #include "colorspace.h"
 #include "bound.h"
+#ifdef _WIN32
 #include <d3dx9.h>
+#else
+#include "d3dx9.h"
+#endif
 #include <algorithm>
 
 /***********************************************************************************************

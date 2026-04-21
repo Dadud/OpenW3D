@@ -42,6 +42,211 @@
 #include "dx8wrapper.h"
 #include <algorithm>
 
+#ifdef _WIN32
+#include <windows.h>
+#include <wingdi.h>
+#else
+// Stub types and constants for Linux
+#ifndef HANDLE
+typedef void* HANDLE;
+#endif
+#ifndef HDC
+typedef void* HDC;
+#endif
+#ifndef HFONT
+typedef void* HFONT;
+#endif
+#ifndef HBITMAP
+typedef void* HBITMAP;
+#endif
+#ifndef HGDIOBJ
+typedef void* HGDIOBJ;
+#endif
+#ifndef BOOL
+typedef int BOOL;
+#endif
+#ifndef DWORD
+typedef unsigned int DWORD;
+#endif
+#ifndef WORD
+typedef unsigned short WORD;
+#endif
+#ifndef UINT
+typedef unsigned int UINT;
+#endif
+#ifndef WPARAM
+typedef unsigned long WPARAM;
+#endif
+#ifndef LPARAM
+typedef long LPARAM;
+#endif
+#ifndef TRUE
+#define TRUE 1
+#endif
+#ifndef FALSE
+#define FALSE 0
+#endif
+#ifndef NULL
+#define NULL 0
+#endif
+#ifndef HRGN
+typedef void* HRGN;
+#endif
+#ifndef COLORREF
+typedef DWORD COLORREF;
+#endif
+#ifndef RGB
+#define RGB(r,g,b) ((DWORD)(((BYTE)(r)|((WORD)((BYTE)(g))<<8))|(((DWORD)(BYTE)(b))<<16)))
+#endif
+#ifndef FW_BOLD
+#define FW_BOLD 700
+#endif
+#ifndef FW_NORMAL
+#define FW_NORMAL 400
+#endif
+#ifndef ETO_OPAQUE
+#define ETO_OPAQUE 0x0004
+#endif
+#ifndef LOGPIXELSY
+#define LOGPIXELSY 90
+#endif
+#ifndef OUT_DEFAULT_PRECIS
+#define OUT_DEFAULT_PRECIS 0
+#endif
+#ifndef CLIP_DEFAULT_PRECIS
+#define CLIP_DEFAULT_PRECIS 0
+#endif
+#ifndef ANTIALIASED_QUALITY
+#define ANTIALIASED_QUALITY 4
+#endif
+#ifndef VARIABLE_PITCH
+#define VARIABLE_PITCH 2
+#endif
+#ifndef DEFAULT_CHARSET
+#define DEFAULT_CHARSET 1
+#endif
+#ifndef CHINESEBIG5_CHARSET
+#define CHINESEBIG5_CHARSET 136
+#endif
+#ifndef SHIFTJIS_CHARSET
+#define SHIFTJIS_CHARSET 128
+#endif
+#ifndef HANGUL_CHARSET
+#define HANGUL_CHARSET 129
+#endif
+#ifndef BI_RGB
+#define BI_RGB 0
+#endif
+#ifndef DIB_RGB_COLORS
+#define DIB_RGB_COLORS 0
+#endif
+#ifndef CLR_INVALID
+#define CLR_INVALID 0xFFFFFFFF
+#endif
+#ifndef GMEM_FIXED
+#define GMEM_FIXED 0x0000
+#endif
+
+// Stub Windows GDI functions for non-Windows
+inline HDC GetDC_Stub(void* hwnd) { (void)hwnd; return NULL; }
+inline int ReleaseDC_Stub(void* hwnd, HDC hdc) { (void)hwnd; (void)hdc; return 0; }
+inline HFONT CreateFontA_Stub(int c, int s, int d, int w, int b, int i, int u, int s2, int ch, int op, int cp, int q, int p, const char* f) {
+    (void)c; (void)s; (void)d; (void)w; (void)b; (void)i; (void)u; (void)s2; (void)ch; (void)op; (void)cp; (void)q; (void)p; (void)f;
+    return NULL;
+}
+inline int MulDiv_Stub(int a, int b, int c) { (void)a; (void)b; (void)c; return 0; }
+inline int GetDeviceCaps_Stub(HDC hdc, int idx) { (void)hdc; (void)idx; return 96; }
+inline int GetACP_Stub(void) { return 0; }
+inline HBITMAP CreateDIBSection_Stub(HDC hdc, const void* info, int usage, void** bits, void* section, DWORD offset) {
+    (void)hdc; (void)info; (void)usage; (void)bits; (void)section; (void)offset;
+    *bits = NULL;
+    return NULL;
+}
+inline HDC CreateCompatibleDC_Stub(HDC hdc) { (void)hdc; return NULL; }
+inline HGDIOBJ SelectObject_Stub(HDC hdc, HGDIOBJ h) { (void)hdc; (void)h; return NULL; }
+inline BOOL DeleteDC_Stub(HDC hdc) { (void)hdc; return TRUE; }
+inline BOOL DeleteObject_Stub(HGDIOBJ h) { (void)h; return TRUE; }
+inline COLORREF SetBkColor_Stub(HDC hdc, COLORREF c) { (void)hdc; (void)c; return CLR_INVALID; }
+inline COLORREF SetTextColor_Stub(HDC hdc, COLORREF c) { (void)hdc; (void)c; return CLR_INVALID; }
+inline BOOL GetTextMetrics_Stub(HDC hdc, void* tm) { (void)hdc; (void)tm; return FALSE; }
+inline BOOL ExtTextOutW_Stub(HDC hdc, int x, int y, int opts, const void* r, const wchar_t* s, unsigned int c, const int* d) {
+    (void)hdc; (void)x; (void)y; (void)opts; (void)r; (void)s; (void)c; (void)d;
+    return FALSE;
+}
+inline BOOL GetTextExtentPoint32W_Stub(HDC hdc, const wchar_t* s, int c, void* size) {
+    (void)hdc; (void)s; (void)c; (void)size;
+    return FALSE;
+}
+
+// Helper struct for SIZE
+struct SIZE_STUB { int cx; int cy; };
+
+// Helper struct for RECT
+struct RECT_STUB { int left; int top; int right; int bottom; };
+
+// Helper struct for TEXTMETRIC
+struct TEXTMETRIC_STUB {
+    int tmHeight;
+    int tmAscent;
+    int tmDescent;
+    int tmInternalLeading;
+    int tmExternalLeading;
+    int tmAveCharWidth;
+    int tmMaxCharWidth;
+    int tmWeight;
+    int tmItalic;
+    int tmUnderlined;
+    int tmStruckOut;
+    int tmPitchAndFamily;
+    int tmCharSet;
+};
+
+// Helper struct for BITMAPINFOHEADER
+struct BITMAPINFOHEADER_STUB {
+    DWORD biSize;
+    int biWidth;
+    int biHeight;
+    WORD biPlanes;
+    WORD biBitCount;
+    DWORD biCompression;
+    DWORD biSizeImage;
+    int biXPelsPerMeter;
+    int biYPelsPerMeter;
+    DWORD biClrUsed;
+    DWORD biClrImportant;
+};
+
+// BITMAPINFO is a Windows type used with CreateDIBSection
+// On Windows it's defined in wingdi.h, but we need a stub for Linux
+struct BITMAPINFO_STUB {
+    BITMAPINFOHEADER_STUB bmiHeader;
+    DWORD bmiColors[1];  // Placeholder
+};
+#define BITMAPINFO BITMAPINFO_STUB
+
+// Macro overrides for non-Windows - map to stub functions
+#define GetDC(hwnd) GetDC_Stub(hwnd)
+#define ReleaseDC(hwnd, hdc) ReleaseDC_Stub(hwnd, hdc)
+#define CreateFontA(c, s, d, w, b, i, u, s2, ch, op, cp, q, p, f) CreateFontA_Stub(c, s, d, w, b, i, u, s2, ch, op, cp, q, p, f)
+#define MulDiv(a, b, c) MulDiv_Stub(a, b, c)
+#define GetDeviceCaps(hdc, idx) GetDeviceCaps_Stub(hdc, idx)
+#define GetACP() GetACP_Stub()
+#define CreateDIBSection(hdc, info, usage, bits, section, offset) CreateDIBSection_Stub(hdc, info, usage, bits, section, offset)
+#define CreateCompatibleDC(hdc) CreateCompatibleDC_Stub(hdc)
+#define SelectObject(hdc, h) SelectObject_Stub(hdc, h)
+#define DeleteDC(hdc) DeleteDC_Stub(hdc)
+#define DeleteObject(h) DeleteObject_Stub(h)
+#define SetBkColor(hdc, c) SetBkColor_Stub(hdc, c)
+#define SetTextColor(hdc, c) SetTextColor_Stub(hdc, c)
+#define GetTextMetrics(hdc, tm) GetTextMetrics_Stub(hdc, tm)
+#define ExtTextOutW(hdc, x, y, opts, r, s, c, d) ExtTextOutW_Stub(hdc, x, y, opts, r, s, c, d)
+#define GetTextExtentPoint32W(hdc, s, c, size) GetTextExtentPoint32W_Stub(hdc, s, c, size)
+#define SIZE SIZE_STUB
+#define RECT RECT_STUB
+#define TEXTMETRIC TEXTMETRIC_STUB
+#define BITMAPINFOHEADER BITMAPINFOHEADER_STUB
+#endif
+
 
 ////////////////////////////////////////////////////////////////////////////////////
 //	Local constants
@@ -1179,7 +1384,13 @@ FontCharsClass::Store_GDI_Char (unichar_t ch)
 	//	Get the size of the character we just drew
 	//
 	SIZE char_size = { 0 };
+#ifdef _WIN32
 	::GetTextExtentPoint32W( MemDC, reinterpret_cast<wchar_t *>(&ch), 1, &char_size );
+#else
+	// On Linux, use a default character size since GDI is not available
+	char_size.cx = PointSize;
+	char_size.cy = PointSize;
+#endif
 	int x_pos = 0;
 
 	//
@@ -1195,7 +1406,14 @@ FontCharsClass::Store_GDI_Char (unichar_t ch)
 	//	Draw the character into the memory DC
 	//
 	RECT rect = { 0, 0, width, height };
+#ifdef _WIN32
 	::ExtTextOutW( MemDC, x_pos, 0, ETO_OPAQUE, &rect, reinterpret_cast<wchar_t *>(&ch), 1, NULL);
+#else
+	// On Linux, we can't actually render text. Clear the bitmap buffer.
+	if (GDIBitmapBits != NULL) {
+		memset(GDIBitmapBits, 0, width * height * 3);
+	}
+#endif
 
 	//
 	//	Get a pointer to the surface that this character should use
@@ -1312,7 +1530,11 @@ FontCharsClass::Update_Current_Buffer (int char_width)
 void
 FontCharsClass::Create_GDI_Font (const char *font_name)
 {
+#ifdef _WIN32
 	HDC screen_dc = ::GetDC (NULL);
+#else
+	HDC screen_dc = NULL;
+#endif
 
 	//
 	//	Calculate the height of the font in logical units
@@ -1327,6 +1549,7 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 	DWORD	charset;
 
 	// Map the current code page to a font character set.
+#ifdef _WIN32
 	switch (GetACP()) {
 
 		// Chinese.
@@ -1350,11 +1573,19 @@ FontCharsClass::Create_GDI_Font (const char *font_name)
 			charset = DEFAULT_CHARSET;
 			break;
 	}
+#else
+	// On Linux, use DEFAULT_CHARSET since GetACP() is not meaningful
+	charset = DEFAULT_CHARSET;
+#endif
 
+#ifdef _WIN32
 	GDIFont = ::CreateFontA (font_height, 0, 0, 0, bold, italic,
 									false, false, charset, OUT_DEFAULT_PRECIS,
 									CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
 									VARIABLE_PITCH, font_name);
+#else
+	GDIFont = NULL;
+#endif
 
 	//
 	// Set-up the fields of the BITMAPINFOHEADER

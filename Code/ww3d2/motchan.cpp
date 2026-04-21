@@ -53,7 +53,9 @@
 #include "wwmath.h"
 #include <cmath>
 //#include <stdio.h>
-//#include <windows.h>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 // Static Table, for Adaptive Delta Decompressor
 #define FILTER_TABLE_SIZE (256)
 #define FILTER_TABLE_GEN_START (16)
