@@ -37,7 +37,23 @@
 #ifndef __WWAUDIO_THREADS_H
 #define __WWAUDIO_THREADS_H
 
+#ifdef _WIN32
 #include <windows.h>
+#else
+#include <pthread.h>
+#ifndef HANDLE
+typedef void* HANDLE;
+#endif
+#ifndef DWORD
+typedef unsigned long DWORD;
+#endif
+#ifndef LPVOID
+typedef void* LPVOID;
+#endif
+#ifndef INFINITE
+#define INFINITE 0xFFFFFFFF
+#endif
+#endif
 #include "vector.h"
 #include "mutex.h"
 

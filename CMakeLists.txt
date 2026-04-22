@@ -39,7 +39,11 @@ if(SYNTAX_CHECK_ONLY)
 endif(SYNTAX_CHECK_ONLY)
 
 # Do we want to build with SDL3 for windows and inputs?
-cmake_dependent_option(W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3." OFF WIN32 ON)
+if(WIN32)
+    cmake_dependent_option(W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3." ON "WIN32" OFF)
+else()
+    set(W3D_BUILD_OPTION_SDL3 OFF CACHE BOOL "Build OpenW3D with SDL3")
+endif()
 add_feature_info(SDL3Build W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3")
 
 # Do we want to build with webbrowser?
@@ -51,7 +55,7 @@ option(W3D_BUILD_OPTION_FFMPEG "Build with ffmpeg." ON)
 add_feature_info(FFMpegBuild W3D_BUILD_OPTION_FFMPEG "Build OpenW3D with FFMpeg")
 
 # Do we want to build with OpenAL/ffmpeg for audio playback?
-cmake_dependent_option(W3D_BUILD_OPTION_OPENAL "Build with openal." ON W3D_BUILD_OPTION_FFMPEG OFF)
+cmake_dependent_option(W3D_BUILD_OPTION_OPENAL "Build with openal." OFF W3D_BUILD_OPTION_FFMPEG OFF)
 add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build OpenW3D with OpenAL")
 
 if(NOT WIN32)
@@ -70,13 +74,14 @@ if(W3D_BUILD_OPTION_FFMPEG)
     include(ffmpeg)
 endif()
 
-if(W3D_BUILD_OPTION_SDL3)
+if(W3D_BUILD_OPTION_SDL3 AND WIN32)
     include(sdl3)
     add_compile_definitions(-DOPENW3D_SDL3=1)
 elseif(WIN32)
     add_compile_definitions(-DOPENW3D_WIN32=1)
 else()
-    message(FATAL_ERROR "Invalid backend")
+    # Linux/Unix builds
+    message(STATUS "Building for non-Windows platform")
 endif()
 
 add_compile_definitions(-DWEBBROWSER_ENABLED=$<BOOL:${W3D_BUILD_OPTION_WEBBROWSER}>)
@@ -110,8 +115,12 @@ if(WIN32)
         include(icu)
     endif()
 else()
-    set(W3D_BUILD_OPTION_ICU ON)
-    include(icu)
+    # Linux/Unix builds
+    message(STATUS "Building for non-Windows platform")
+    option(W3D_BUILD_OPTION_ICU "Build with ICU." OFF)
+    if(W3D_BUILD_OPTION_ICU)
+        include(icu)
+    endif()
 endif()
 
 include(dx9)

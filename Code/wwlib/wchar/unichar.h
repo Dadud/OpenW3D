@@ -21,7 +21,10 @@
 #define UNICHAR_H
 
 #include <wchar.h>
+
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 typedef wchar_t unichar_t;
 #define u_strlen(x) wcslen(x)
@@ -31,8 +34,13 @@ typedef wchar_t unichar_t;
 #define u_vsnprintf_u(w, x, y, z) vswprintf(w, x, y, z)
 #define u_strcmp(x, y) wcscmp(x, y)
 #define u_strncmp(x, y, z) wcsncmp(x, y, z)
+#ifdef _WIN32
 #define u_strcasecmp(x, y, z) _wcsicmp(x, y)
 #define u_strncasecmp(x, y, z, w) wcsnicmp(x, y, z)
+#else
+#define u_strcasecmp(x, y, z) wcscoll(x, y)
+#define u_strncasecmp(x, y, z, w) wcsncoll(x, y)
+#endif
 #define u_strpbrk(x, y) wcspbrk(x, y)
 #define u_isspace(x) iswspace(x)
 #define u_tolower(x) towlower(x)
@@ -45,6 +53,7 @@ typedef wchar_t unichar_t;
 #define U_COMPARE_CODE_POINT_ORDER 0x8000
 #define U_CHAR(str) (L##str)
 
+#ifdef _WIN32
 inline size_t u_mbtows(unichar_t* dst, const char* src, size_t len)
 {
 	int retval = MultiByteToWideChar (CP_UTF8, 0, src, -1, dst, len);
@@ -66,5 +75,35 @@ inline size_t u_wstomb(char* dst, const unichar_t* src, size_t len)
 
 	return size_t(retval);
 }
+#else
+// Linux implementation using standard wide char functions
+#include <stdlib.h>
+#include <string.h>
+
+inline size_t u_mbtows(unichar_t* dst, const char* src, size_t len)
+{
+	if (len == 0) {
+		// Calculate required size
+		mbstate_t ps = {};
+		return mbsrtowcs(dst, &src, 0, &ps);
+	}
+
+	mbstate_t ps = {};
+	size_t result = mbsrtowcs(dst, &src, len, &ps);
+	return result;
+}
+
+inline size_t u_wstomb(char* dst, const unichar_t* src, size_t len)
+{
+	if (len == 0) {
+		mbstate_t ps = {};
+		return wcsrtombs(dst, &src, 0, &ps);
+	}
+
+	mbstate_t ps = {};
+	size_t result = wcsrtombs(dst, &src, len, &ps);
+	return result;
+}
+#endif
 
 #endif // UNICHAR_H

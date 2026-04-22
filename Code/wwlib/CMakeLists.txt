@@ -167,6 +167,7 @@ target_link_libraries(wwlib PRIVATE
     wwutil
     version
 )
+
 if(W3D_BUILD_OPTION_SDL3)
     target_link_libraries(wwlib PRIVATE SDL3::SDL3-shared)
     target_link_libraries(wwlib PUBLIC SDL3::Headers)

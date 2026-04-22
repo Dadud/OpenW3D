@@ -12,15 +12,9 @@ if(WIN32)
         target_link_libraries(d3d9lib INTERFACE d3d9 d3dx9)
     endif()
 else()
-    find_path(DXVK_INCLUDE_PATH NAMES "dxvk/d3d9.h" REQUIRED)
-    find_library(DXVK_D3D9_LIBRARY NAMES "dxvk_d3d9" REQUIRED)
-    add_library(d3d9 UNKNOWN IMPORTED)
-    set_property(TARGET d3d9 PROPERTY IMPORTED_LOCATION "${DXVK_D3D9_LIBRARY}")
-    set_property(TARGET d3d9 PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${DXVK_INCLUDE_PATH}")
-
+    # Linux builds use built-in stub headers in Code/ww3d2/
+    # rather than DXVK
     add_library(d3d9lib INTERFACE)
-    target_link_libraries(d3d9lib INTERFACE d3d9)
-    target_include_directories(d3d9lib INTERFACE "${PROJECT_SOURCE_DIR}/Code/dxvk_wrapper")
-    target_include_directories(d3d9lib INTERFACE "${DXVK_INCLUDE_PATH}/dxvk")
+    target_include_directories(d3d9lib INTERFACE "${PROJECT_SOURCE_DIR}/Code/ww3d2")
 endif()
 

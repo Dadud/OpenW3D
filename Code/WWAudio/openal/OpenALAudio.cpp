@@ -72,7 +72,9 @@ OpenALAudioClass::~OpenALAudioClass()
 	//	Make sure the delayed-release thread is terminated
 	// before we exit (otherwise the process will crash).
 	//
+#ifdef _WIN32
 	WWAudioThreadsClass::End_Delayed_Release_Thread();
+#endif
 
 	Shutdown();
 }
