@@ -49,7 +49,6 @@
 
 bool ShaderClass::ShaderDirty=true;
 unsigned int ShaderClass::CurrentShader=0;
-unsigned int _PolygonCullMode = D3DCULL_CW;
 
 
 /*
@@ -360,6 +359,11 @@ void ShaderClass::Report_Unable_To_Fog ([[maybe_unused]] const char *source)
 	}
 	#endif
 }
+
+#if ENABLE_DX9_BACKEND
+
+// D3D9-specific cull mode - used by Invert_Backface_Culling and Is_Backface_Culling_Inverted
+unsigned int _PolygonCullMode = D3DCULL_CW;
 
 class Blend
 {
@@ -983,3 +987,4 @@ bool ShaderClass::Is_Backface_Culling_Inverted(void)
 {
 	return (_PolygonCullMode == D3DCULL_CCW);
 }
+#endif // ENABLE_DX9_BACKEND
