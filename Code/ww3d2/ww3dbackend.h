@@ -11,6 +11,7 @@
 // The concrete backend (DX9, Vulkan, etc.) maps these to real API handles.
 using BackendTextureHandle = void*;
 using BackendSurfaceHandle = void*;
+using BackendMaterialHandle = void*;
 
 class WW3DBackend
 {

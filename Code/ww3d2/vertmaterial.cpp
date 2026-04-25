@@ -110,7 +110,7 @@ VertexMaterialClass::VertexMaterialClass(const VertexMaterialClass & src) :
 	}
 
 	Material=new D3DMATERIAL9;
-	memcpy(Material,src.Material,sizeof(D3DMATERIAL9));
+	memcpy(static_cast<_D3DMATERIAL9*>(Material),static_cast<_D3DMATERIAL9*>(src.Material),sizeof(D3DMATERIAL9));
 }
 
 void VertexMaterialClass::Make_Unique()
@@ -164,7 +164,7 @@ VertexMaterialClass & VertexMaterialClass::operator = (const VertexMaterialClass
 			UVSource[stage] = src.UVSource[stage];
 		}
 
-		*Material=*src.Material;
+		*static_cast<_D3DMATERIAL9*>(Material)=*static_cast<_D3DMATERIAL9*>(src.Material);
 	}
 	return *this;
 }
@@ -176,7 +176,7 @@ unsigned int VertexMaterialClass::Compute_CRC(void) const
 // don't include the name when determining whether two vertex materials match
 //	crc = CRC_Memory(reinterpret_cast<const unsigned char *>(Name.Peek_Buffer()),sizeof(char)*strlen(Name),crc);
 
-	crc = CRC_Memory(reinterpret_cast<const unsigned char *>(Material),sizeof(D3DMATERIAL9),crc);
+	crc = CRC_Memory(reinterpret_cast<const unsigned char *>(static_cast<_D3DMATERIAL9*>(Material)),sizeof(D3DMATERIAL9),crc);
 	crc = CRC_Memory(reinterpret_cast<const unsigned char *>(&Flags),sizeof(Flags),crc);
 	crc = CRC_Memory(reinterpret_cast<const unsigned char *>(&DiffuseColorSource),sizeof(DiffuseColorSource),crc);
 	crc = CRC_Memory(reinterpret_cast<const unsigned char *>(&AmbientColorSource),sizeof(AmbientColorSource),crc);
@@ -199,23 +199,23 @@ unsigned int VertexMaterialClass::Compute_CRC(void) const
 void VertexMaterialClass::Get_Ambient(Vector3 * set) const
 {
 	assert(set);
-	*set=Vector3(Material->Ambient.r,Material->Ambient.g,Material->Ambient.b);
+	*set=Vector3(static_cast<_D3DMATERIAL9*>(Material)->Ambient.r,static_cast<_D3DMATERIAL9*>(Material)->Ambient.g,static_cast<_D3DMATERIAL9*>(Material)->Ambient.b);
 }
 
 void VertexMaterialClass::Set_Ambient(const Vector3 & color)
 {
 	CRCDirty=true;
-	Material->Ambient.r=color.X;
-	Material->Ambient.g=color.Y;
-	Material->Ambient.b=color.Z;
+	static_cast<_D3DMATERIAL9*>(Material)->Ambient.r=color.X;
+	static_cast<_D3DMATERIAL9*>(Material)->Ambient.g=color.Y;
+	static_cast<_D3DMATERIAL9*>(Material)->Ambient.b=color.Z;
 }
 
 void VertexMaterialClass::Set_Ambient(float r,float g,float b)
 {
 	CRCDirty=true;
-	Material->Ambient.r=r;
-	Material->Ambient.g=g;
-	Material->Ambient.b=b;
+	static_cast<_D3DMATERIAL9*>(Material)->Ambient.r=r;
+	static_cast<_D3DMATERIAL9*>(Material)->Ambient.g=g;
+	static_cast<_D3DMATERIAL9*>(Material)->Ambient.b=b;
 }
 
 // Diffuse Get and Sets
@@ -223,23 +223,23 @@ void VertexMaterialClass::Set_Ambient(float r,float g,float b)
 void VertexMaterialClass::Get_Diffuse(Vector3 * set) const
 {
 	assert(set);
-	*set=Vector3(Material->Diffuse.r,Material->Diffuse.g,Material->Diffuse.b);
+	*set=Vector3(static_cast<_D3DMATERIAL9*>(Material)->Diffuse.r,static_cast<_D3DMATERIAL9*>(Material)->Diffuse.g,static_cast<_D3DMATERIAL9*>(Material)->Diffuse.b);
 }
 
 void VertexMaterialClass::Set_Diffuse(const Vector3 & color)
 {
 	CRCDirty=true;
-	Material->Diffuse.r=color.X;
-	Material->Diffuse.g=color.Y;
-	Material->Diffuse.b=color.Z;
+	static_cast<_D3DMATERIAL9*>(Material)->Diffuse.r=color.X;
+	static_cast<_D3DMATERIAL9*>(Material)->Diffuse.g=color.Y;
+	static_cast<_D3DMATERIAL9*>(Material)->Diffuse.b=color.Z;
 }
 
 void VertexMaterialClass::Set_Diffuse(float r,float g,float b)
 {
 	CRCDirty=true;
-	Material->Diffuse.r=r;
-	Material->Diffuse.g=g;
-	Material->Diffuse.b=b;
+	static_cast<_D3DMATERIAL9*>(Material)->Diffuse.r=r;
+	static_cast<_D3DMATERIAL9*>(Material)->Diffuse.g=g;
+	static_cast<_D3DMATERIAL9*>(Material)->Diffuse.b=b;
 }
 
 // Specular Get and Sets
@@ -247,23 +247,23 @@ void VertexMaterialClass::Set_Diffuse(float r,float g,float b)
 void VertexMaterialClass::Get_Specular(Vector3 * set) const
 {
 	assert(set);
-	*set=Vector3(Material->Specular.r,Material->Specular.g,Material->Specular.b);
+	*set=Vector3(static_cast<_D3DMATERIAL9*>(Material)->Specular.r,static_cast<_D3DMATERIAL9*>(Material)->Specular.g,static_cast<_D3DMATERIAL9*>(Material)->Specular.b);
 }
 
 void VertexMaterialClass::Set_Specular(const Vector3 & color)
 {
 	CRCDirty=true;
-	Material->Specular.r=color.X;
-	Material->Specular.g=color.Y;
-	Material->Specular.b=color.Z;
+	static_cast<_D3DMATERIAL9*>(Material)->Specular.r=color.X;
+	static_cast<_D3DMATERIAL9*>(Material)->Specular.g=color.Y;
+	static_cast<_D3DMATERIAL9*>(Material)->Specular.b=color.Z;
 }
 
 void VertexMaterialClass::Set_Specular(float r,float g,float b)
 {
 	CRCDirty=true;
-	Material->Specular.r=r;
-	Material->Specular.g=g;
-	Material->Specular.b=b;
+	static_cast<_D3DMATERIAL9*>(Material)->Specular.r=r;
+	static_cast<_D3DMATERIAL9*>(Material)->Specular.g=g;
+	static_cast<_D3DMATERIAL9*>(Material)->Specular.b=b;
 }
 
 // Emissive Get and Sets
@@ -271,46 +271,46 @@ void VertexMaterialClass::Set_Specular(float r,float g,float b)
 void VertexMaterialClass::Get_Emissive(Vector3 * set) const
 {
 	assert(set);
-	*set=Vector3(Material->Emissive.r,Material->Emissive.g,Material->Emissive.b);
+	*set=Vector3(static_cast<_D3DMATERIAL9*>(Material)->Emissive.r,static_cast<_D3DMATERIAL9*>(Material)->Emissive.g,static_cast<_D3DMATERIAL9*>(Material)->Emissive.b);
 }
 
 void VertexMaterialClass::Set_Emissive(const Vector3 & color)
 {
 	CRCDirty=true;
-	Material->Emissive.r=color.X;
-	Material->Emissive.g=color.Y;
-	Material->Emissive.b=color.Z;
+	static_cast<_D3DMATERIAL9*>(Material)->Emissive.r=color.X;
+	static_cast<_D3DMATERIAL9*>(Material)->Emissive.g=color.Y;
+	static_cast<_D3DMATERIAL9*>(Material)->Emissive.b=color.Z;
 }
 
 void VertexMaterialClass::Set_Emissive(float r,float g,float b)
 {
 	CRCDirty=true;
-	Material->Emissive.r=r;
-	Material->Emissive.g=g;
-	Material->Emissive.b=b;
+	static_cast<_D3DMATERIAL9*>(Material)->Emissive.r=r;
+	static_cast<_D3DMATERIAL9*>(Material)->Emissive.g=g;
+	static_cast<_D3DMATERIAL9*>(Material)->Emissive.b=b;
 }
 
 
 float	VertexMaterialClass::Get_Shininess(void) const
 {
-	return Material->Power;
+	return static_cast<_D3DMATERIAL9*>(Material)->Power;
 }
 
 void	VertexMaterialClass::Set_Shininess(float shin)
 {
 	CRCDirty=true;
-	Material->Power=shin;
+	static_cast<_D3DMATERIAL9*>(Material)->Power=shin;
 }
 
 float	VertexMaterialClass::Get_Opacity(void) const
 {
-	return Material->Diffuse.a;
+	return static_cast<_D3DMATERIAL9*>(Material)->Diffuse.a;
 }
 
 void	VertexMaterialClass::Set_Opacity(float o)
 {
 	CRCDirty=true;
-	Material->Diffuse.a=o;
+	static_cast<_D3DMATERIAL9*>(Material)->Diffuse.a=o;
 }
 
 void	VertexMaterialClass::Set_Ambient_Color_Source(ColorSourceType src)
