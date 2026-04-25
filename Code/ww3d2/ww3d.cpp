@@ -1089,6 +1089,13 @@ void WW3D::Flip_To_Primary(void)
 	}
 }
 
+void WW3D::Set_Render_Target(void* target)
+{
+	if (Backend) {
+		Backend->Set_Render_Target(target);
+	}
+}
+
 
 /***********************************************************************************************
  * WW3D::Get_Last_Frame_Poly_Count -- returns the number of polys submitted in the previous fr *

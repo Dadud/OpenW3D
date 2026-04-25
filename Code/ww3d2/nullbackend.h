@@ -58,6 +58,13 @@ public:
 	virtual void Set_Texture_Bitdepth(int depth) override;
 	virtual int Get_Texture_Bitdepth() override;
 
+	// Viewport & Render Target
+	virtual void Set_Viewport(const void* viewport) override;
+	virtual void Set_Render_Target(void* target) override;
+	virtual void Set_DX8_Render_State(int state, unsigned value) override;
+	virtual void Set_Light_Environment(const void* env) override;
+	virtual void* _Get_DX8_Front_Buffer() override;
+
 private:
 	int Width;
 	int Height;

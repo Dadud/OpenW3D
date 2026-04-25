@@ -1,6 +1,6 @@
 /*
 **	Command & Conquer Renegade(tm)
-**	Copyright 2025 Electronic Arts Inc.
+**	Community contribution - Licensed under GPLv3
 **
 **	This program is free software: you can redistribute it and/or modify
 **	it under the terms of the GNU General Public License as published by
@@ -82,6 +82,7 @@
 #include "bwrender.h"
 #include "assetmgr.h"
 #include "dx8wrapper.h"
+#include "ww3d.h"
 
 
 // DEBUG DEBUG
@@ -1120,7 +1121,7 @@ bool TexProjectClass::Compute_Texture(RenderObjClass * model,SpecialRenderInfoCl
 		/*
 		** Set the render target
 		*/
-		DX8Wrapper::Set_Render_Target(rtarget);
+		WW3D::Set_Render_Target(rtarget);
 
 		/*
 		** Set up the camera
@@ -1139,7 +1140,7 @@ bool TexProjectClass::Compute_Texture(RenderObjClass * model,SpecialRenderInfoCl
 		WW3D::Render(*model,*context);
 		WW3D::End_Render(false);
 
-		DX8Wrapper::Set_Render_Target((IDirect3DSurface9 *)NULL);
+		WW3D::Set_Render_Target(nullptr);
 
 	}
 

@@ -222,6 +222,11 @@ void NullBackend::Set_Light_Environment(const void* /*env*/)
 {
 }
 
+void NullBackend::Set_Render_Target(void* /*target*/)
+{
+	// NullBackend has no render target - ignore
+}
+
 void* NullBackend::_Get_DX8_Front_Buffer()
 {
 	return nullptr;

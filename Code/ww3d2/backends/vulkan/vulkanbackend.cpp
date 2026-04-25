@@ -671,6 +671,12 @@ void VulkanBackend::Set_Viewport(const void* viewport)
     }
 }
 
+void VulkanBackend::Set_Render_Target(void* /*target*/)
+{
+    // Vulkan uses framebuffer attachments rather than render targets.
+    // For now this is a stub - real implementation would bind VkImageView as framebuffer.
+}
+
 void VulkanBackend::Set_DX8_Render_State(int state, unsigned value)
 {
     m_render_state[state] = value;

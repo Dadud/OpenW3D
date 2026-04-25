@@ -156,6 +156,9 @@ public:
 
 	static void Flip_To_Primary(void);
 
+	// Render target
+	static void Set_Render_Target(void* target);  // nullptr = reset to default
+
 
 	/*
 	** Timing

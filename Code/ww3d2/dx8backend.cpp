@@ -213,6 +213,15 @@ void DX8Backend::Set_Light_Environment(const void* env)
     DX8Wrapper::Set_Light_Environment(env);
 }
 
+void DX8Backend::Set_Render_Target(void* target)
+{
+    if (target == nullptr) {
+        DX8Wrapper::Set_Render_Target((IDirect3DSurface9*)nullptr);
+    } else {
+        DX8Wrapper::Set_Render_Target(static_cast<TextureClass*>(target));
+    }
+}
+
 void* DX8Backend::_Get_DX8_Front_Buffer()
 {
     return DX8Wrapper::_Get_DX8_Front_Buffer();

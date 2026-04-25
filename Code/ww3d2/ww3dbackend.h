@@ -40,7 +40,7 @@ class SceneClass;
 class RenderDeviceDescClass;
 
 /************************************************************************************************
- * PresentationDescriptor - backend-agnostic description of a swapchain/present target.           *
+ * PresentationDescriptor - backend-agnostic description of a swapchain/present target.         *
  * Used when creating or configuring a swapchain through Create_Swapchain().                     *
  ************************************************************************************************/
 struct PresentationDescriptor
@@ -55,6 +55,22 @@ struct PresentationDescriptor
         Width(640), Height(480), RefreshRateHz(0), Windowed(true), BackBufferCount(1)
     {
     }
+};
+
+/************************************************************************************************
+ * ViewportDesc - backend-agnostic viewport dimensions.                                         *
+ * Replaces raw D3DVIEWPORT9 in Set_Viewport calls.                                           *
+ ************************************************************************************************/
+struct ViewportDesc
+{
+    int X;
+    int Y;
+    int Width;
+    int Height;
+    float MinZ;
+    float MaxZ;
+
+    ViewportDesc() : X(0), Y(0), Width(640), Height(480), MinZ(0.0f), MaxZ(1.0f) {}
 };
 
 class WW3DBackend
@@ -111,6 +127,7 @@ public:
 
     // Render state
     virtual void Set_Viewport(const void* viewport) = 0;
+    virtual void Set_Render_Target(void* target) = 0;  // nullptr = reset to default render target
     virtual void Set_DX8_Render_State(int state, unsigned value) = 0;
     virtual void Set_Light_Environment(const void* env) = 0;
     virtual void* _Get_DX8_Front_Buffer() = 0;
