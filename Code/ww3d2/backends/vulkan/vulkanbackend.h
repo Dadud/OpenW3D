@@ -130,7 +130,7 @@ private:
     bool Select_Device(int device_index);
     bool Create_Vulkan_Device();
     bool Create_Surface(void * hwnd);
-    bool Create_Swapchain(int width, int height);
+    bool Create_Swapchain(int width, int height) override;
     void Destroy_Swapchain();
     void Destroy_Surface();
     void Destroy_Device();

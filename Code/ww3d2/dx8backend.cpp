@@ -1,6 +1,6 @@
 /*
 **	Command & Conquer Renegade(tm)
-**	Copyright 2025 Electronic Arts Inc.
+**	Community contribution - Licensed under GPLv3
 **
 **	This program is free software: you can redistribute it and/or modify
 **	it under the terms of the GNU General Public License as published by
@@ -31,7 +31,8 @@
 #include "dx8backend.h"
 #include "dx8wrapper.h"
 
-DX8Backend::DX8Backend()
+DX8Backend::DX8Backend() :
+    m_hwnd(nullptr)
 {
 }
 
@@ -41,6 +42,7 @@ DX8Backend::~DX8Backend()
 
 bool DX8Backend::Init(void * hwnd, bool lite)
 {
+    m_hwnd = hwnd;
     return DX8Wrapper::Init(hwnd, lite);
 }
 
@@ -142,6 +144,18 @@ bool DX8Backend::Registry_Save_Render_Device(const char *sub_key, int device, in
 bool DX8Backend::Registry_Load_Render_Device(const char * sub_key, char *device, int device_len, int &width, int &height, int &depth, int &windowed, int &texture_depth)
 {
     return DX8Wrapper::Registry_Load_Render_Device(sub_key, device, device_len, width, height, depth, windowed, texture_depth);
+}
+
+bool DX8Backend::Create_Swapchain(int width, int height)
+{
+    // Create an additional swap chain using the stored window handle.
+    // DX8 swapchain is created with current present params; width/height are hints
+    // that the DX8 present params would need updating to honor fully.
+    if (m_hwnd == nullptr) {
+        return false;
+    }
+    DX8Wrapper::Create_Additional_Swap_Chain(static_cast<HWND>(m_hwnd));
+    return true;
 }
 
 void DX8Backend::Begin_Scene()

@@ -44,6 +44,8 @@ public:
 	virtual bool Registry_Save_Render_Device(const char *sub_key, int device, int width, int height, int depth, bool windowed, int texture_depth) override;
 	virtual bool Registry_Load_Render_Device(const char * sub_key, char *device, int device_len, int &width, int &height, int &depth, int &windowed, int &texture_depth) override;
 
+	virtual bool Create_Swapchain(int width, int height) override;
+
 	virtual void Begin_Scene() override;
 	virtual void End_Scene(bool flip_frame = true) override;
 	virtual void Flip_To_Primary() override;

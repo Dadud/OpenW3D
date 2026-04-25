@@ -166,6 +166,14 @@ bool NullBackend::Registry_Load_Render_Device(const char * /*sub_key*/, char *de
 	return true;
 }
 
+bool NullBackend::Create_Swapchain(int width, int height)
+{
+    // NullBackend has no GPU swapchain - just track the requested dimensions
+    Width = width > 0 ? width : Width;
+    Height = height > 0 ? height : Height;
+    return true;
+}
+
 void NullBackend::Begin_Scene()
 {
 }

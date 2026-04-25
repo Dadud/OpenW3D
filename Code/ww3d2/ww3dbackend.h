@@ -39,6 +39,24 @@
 class SceneClass;
 class RenderDeviceDescClass;
 
+/************************************************************************************************
+ * PresentationDescriptor - backend-agnostic description of a swapchain/present target.           *
+ * Used when creating or configuring a swapchain through Create_Swapchain().                     *
+ ************************************************************************************************/
+struct PresentationDescriptor
+{
+    int Width;
+    int Height;
+    int RefreshRateHz;    // 0 = default
+    bool Windowed;
+    int BackBufferCount;   // 1 = single-buffered, 2 = double-buffered
+
+    PresentationDescriptor() :
+        Width(640), Height(480), RefreshRateHz(0), Windowed(true), BackBufferCount(1)
+    {
+    }
+};
+
 class WW3DBackend
 {
 public:
@@ -71,6 +89,9 @@ public:
     virtual bool Registry_Load_Render_Device(const char * sub_key, bool resize_window) = 0;
     virtual bool Registry_Save_Render_Device(const char *sub_key, int device, int width, int height, int depth, bool windowed, int texture_depth) = 0;
     virtual bool Registry_Load_Render_Device(const char * sub_key, char *device, int device_len, int &width, int &height, int &depth, int &windowed, int &texture_depth) = 0;
+
+    // Swapchain / Presentation
+    virtual bool Create_Swapchain(int width, int height) = 0;
 
     // Scene
     virtual void Begin_Scene() = 0;
