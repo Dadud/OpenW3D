@@ -20,15 +20,15 @@ set(WW3D2_SRC
     decalmsh.cpp
     decalsys.cpp
     distlod.cpp
-    dx8caps.cpp
-    dx8fvf.cpp
-    dx8indexbuffer.cpp
-    dx8polygonrenderer.cpp
-    dx8renderer.cpp
-    dx8rendererdebugger.cpp
-    dx8texman.cpp
-    dx8vertexbuffer.cpp
-    dx8wrapper.cpp
+    dx9/dx8caps.cpp
+    dx9/dx8fvf.cpp
+    dx9/dx8indexbuffer.cpp
+    dx9/dx8polygonrenderer.cpp
+    dx9/dx8renderer.cpp
+    dx9/dx8rendererdebugger.cpp
+    dx9/dx8texman.cpp
+    dx9/dx8vertexbuffer.cpp
+    dx9/dx8wrapper.cpp
     dynamesh.cpp
     font3d.cpp
     formconv.cpp
@@ -102,6 +102,10 @@ set(WW3D2_SRC
     w3d_util.cpp
     ww3d.cpp
     ww3dformat.cpp
+    meshrenderer.cpp
+    ww3d2_util.h
+    ww3dbackend.cpp
+    ww3dbackend.h
     aabtree.h
     aabtreebuilder.h
     agg_def.h
@@ -125,16 +129,16 @@ set(WW3D2_SRC
     decalsys.h
     distlod.h
     dllist.h
-    dx8caps.h
-    dx8fvf.h
-    dx8indexbuffer.h
-    dx8list.h
-    dx8polygonrenderer.h
-    dx8renderer.h
-    dx8rendererdebugger.h
-    dx8texman.h
-    dx8vertexbuffer.h
-    dx8wrapper.h
+    dx9/dx8caps.h
+    dx9/dx8fvf.h
+    dx9/dx8indexbuffer.h
+    dx9/dx8list.h
+    dx9/dx8polygonrenderer.h
+    dx9/dx8renderer.h
+    dx9/dx8rendererdebugger.h
+    dx9/dx8texman.h
+    dx9/dx8vertexbuffer.h
+    dx9/dx8wrapper.h
     dynamesh.h
     font3d.h
     formconv.h
