@@ -52,7 +52,6 @@
 #include "gamesideservercontrol.h"
 #include "specialbuilds.h"
 #include "ServerSettings.h"
-#include <limits>
 
 /*
 ** Single instance of console.
@@ -158,7 +157,7 @@ void ConsoleModeClass::Init(void)
 			coord.X=80;
 			coord.Y=4192;
 			SetConsoleScreenBufferSize(ConsoleOutputHandle, coord);
-			DWORD written = 0;
+			unsigned long written = 0;
 			coord.X=0;
 			coord.Y=0;
 
@@ -191,15 +190,12 @@ void ConsoleModeClass::Init(void)
 			/*
 			** Print up version info.
 			*/
-			unsigned int version_major = 1;
-			unsigned int version_minor = 0;
-			Get_Version_Number(&version_major, &version_minor);
 #ifdef FREEDEDICATEDSERVER
 			Print("Renegade Free Dedicated Server ");
 #else  //FREEDEDICATEDSERVER
 			Print("Renegade ");
 #endif //FREEDEDICATEDSERVER
-			Print("v%d.%.3d %s-%s %s\n", (version_major >> 16), (version_major & 0xFFFF), BuildInfoClass::Get_Builder_Initials(), BuildInfoClass::Get_Build_Number_String(), BuildInfoClass::Get_Build_Date_String());
+			Print("v%s %s-%s %s\n", BuildInfoClass::Get_Build_Version_String(), BuildInfoClass::Get_Build_Commit_String(), BuildInfoClass::Get_Build_Number_String(), BuildInfoClass::Get_Build_Date_String());
 			Print("Console mode active\n");
 
 			LastKeypressTime = 0;
@@ -392,7 +388,7 @@ void ConsoleModeClass::Print_Maybe(char const * string, ...)
 void ConsoleModeClass::Static_Print_Maybe(char const * string, ...)
 {
 	ConsoleBox.Print_Maybe(string);
-}
+}			  
 
 
 
@@ -426,7 +422,7 @@ void ConsoleModeClass::cprintf(char const * string, ...)
 		/*
 		** Have to use '%s' here or we end up doing the formatting twice.
 		*/
-		::_cprintf("%s", buffer);
+		::cprintf("%s", buffer);
 		GameSideServerControlClass::Print("%s", buffer);
 	}
 }
@@ -461,9 +457,9 @@ const char *ConsoleModeClass::Get_Log_File_Name(void)
 
 		FILETIME file_time;
 		if (SystemTimeToFileTime(&time, &file_time)) {
-			int64_t int_file_time;
+			_int64 int_file_time;
 			memcpy(&int_file_time, &file_time, sizeof(int_file_time));
-			int64_t time_diff = ((int64_t)10000000) * ((int64_t)60*60*24*ServerSettingsClass::Get_Disk_Log_Size());
+			_int64 time_diff = ((_int64)10000000) * ((_int64)60*60*24*ServerSettingsClass::Get_Disk_Log_Size());
 			int_file_time -= time_diff;
 			memcpy(&file_time, &int_file_time, sizeof(file_time));
 
@@ -544,7 +540,7 @@ void ConsoleModeClass::Think(void)
 	static char last_suggestion[256] = "";
 	static char help[256] = "";
 	static char suggestion_stub[256];
-	static unsigned int last_info_time = 0;
+	static unsigned long last_info_time = 0;
 	static int num_players = -1;	//eh?
 
 	static int delay = 100;
@@ -704,7 +700,7 @@ void ConsoleModeClass::Think(void)
 		delay--;
 		if (delay <= 0) {
 			delay = 100;
-			unsigned int time = TIMEGETTIME();
+			unsigned long time = TIMEGETTIME();
 
 			/*
 			** Handle timer reset.
@@ -832,7 +828,7 @@ void ConsoleModeClass::Apply_Attributes(void)
 
 	if (ok) {
 		COORD pos = info.dwCursorPosition;
-		DWORD written = 0;
+		unsigned long written = 0;
 
 		if (!SlaveMaster.Am_I_Slave()) {
 			FillConsoleOutputAttribute(ConsoleOutputHandle, MASTER_COLORS, 5*80, pos, &written);
@@ -841,6 +837,12 @@ void ConsoleModeClass::Apply_Attributes(void)
 		}
 	}
 }
+
+
+
+// unrecognized character escape sequence
+#pragma warning(disable : 4129)
+
 
 /***********************************************************************************************
  * ConsoleModeClass::Update_Profile -- Print the profile text                                  *
@@ -866,23 +868,20 @@ void ConsoleModeClass::Update_Profile(StringClass profile_string)
 		/*
 		** Get a checksum of the profile string.
 		*/
-		const size_t profile_length = profile_string.Get_Length();
-		WWASSERT(profile_length <= static_cast<size_t>(std::numeric_limits<unsigned long>::max()));
-    unsigned int crc = CRC::Memory((unsigned char*)profile_string.Peek_Buffer(), profile_length);
+		unsigned long crc = CRC::Memory((unsigned char*)profile_string.Peek_Buffer(), profile_string.Get_Length());
 		if (crc != LastProfileCRC) {
 
 
 			/*
 			** Create a copy of the string and scan it for '%'.
 			*/
-			const size_t len = profile_string.Get_Length();
-			WWASSERT(len <= static_cast<size_t>(std::numeric_limits<int>::max()));
-			char *str = (char*) alloca(static_cast<size_t>(len) * 2);
+			int len = profile_string.Get_Length();
+			char *str = (char*) alloca(len * 2);
 			char *src = profile_string.Peek_Buffer();
 			char *dst = str;
 			char c;
 
-			for (size_t i=0 ; i<len ; i++) {
+			for (int i=0 ; i<len ; i++) {
 				c = *src++;
 				/*
 				** % = 37. Double up % sign so it prints literally.
@@ -905,7 +904,7 @@ void ConsoleModeClass::Update_Profile(StringClass profile_string)
 			** Fill the console with spaces.
 			*/
 			if (ok) {
-				DWORD num_written = 0;
+				unsigned long num_written = 0;
 				FillConsoleOutputCharacter(ConsoleOutputHandle, ' ', 206*80, pos, &num_written);
 
 				/*
