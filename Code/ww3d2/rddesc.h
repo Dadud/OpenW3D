@@ -44,8 +44,10 @@
 
 #include "vector.h"
 #include "wwstring.h"
+#if ENABLE_DX9_BACKEND
 #include <d3d9types.h>
 #include <d3d9caps.h>
+#endif
 
 class ResolutionDescClass
 {
@@ -54,7 +56,7 @@ public:
 	ResolutionDescClass(int w,int h,int bits) : Width(w), Height(h), BitDepth(bits) { }
 	bool operator == (const ResolutionDescClass & src) { return ((Width==src.Width) && (Height==src.Height) && (BitDepth==src.BitDepth)); }
 	bool operator != (const ResolutionDescClass & src) { return ((Width!=src.Width) || (Height!=src.Height) || (BitDepth!=src.BitDepth)); }
-
+	
 	int			Width;
 	int			Height;
 	int			BitDepth;
@@ -77,7 +79,7 @@ public:
 	{
 	}
 
-	RenderDeviceDescClass & operator = (const RenderDeviceDescClass & src)
+	RenderDeviceDescClass & operator = (const RenderDeviceDescClass & src) 
 	{
 		set_device_name(src.Get_Device_Name());
 		set_device_vendor(src.Get_Device_Vendor());
@@ -88,11 +90,13 @@ public:
 		set_hardware_name(src.Get_Hardware_Name());
 		set_hardware_vendor(src.Get_Hardware_Vendor());
 		set_hardware_chipset(src.Get_Hardware_Chipset());
+#if ENABLE_DX9_BACKEND
 		Caps=src.Caps;
 		AdapterIdentifier=src.AdapterIdentifier;
+#endif
 		ResArray = src.ResArray;
 		return *this;
-	}
+	}	
 
 	bool operator == (const RenderDeviceDescClass & /*src*/) { return false; }
 	bool operator != (const RenderDeviceDescClass & /*src*/) { return true; }
@@ -110,8 +114,11 @@ public:
 	const char *		Get_Hardware_Chipset() const	{ return HardwareChipset; }
 
 	const DynamicVectorClass<ResolutionDescClass> & Enumerate_Resolutions(void) const	{ return ResArray; }
+#if ENABLE_DX9_BACKEND
+    // These are only used in WWConfig, so the engine doesn't need it in general
 	const D3DCAPS9& 	Get_Caps() const { return Caps; }
 	const D3DADAPTER_IDENTIFIER9& Get_Adapter_Identifier() const { return AdapterIdentifier; }
+#endif
 
 private:
 
@@ -140,9 +147,11 @@ private:
 	StringClass			HardwareVendor;
 	StringClass			HardwareChipset;
 
+#if ENABLE_DX9_BACKEND
 	D3DCAPS9				Caps;
 	D3DADAPTER_IDENTIFIER9 AdapterIdentifier;
-
+#endif
+	
 	DynamicVectorClass<ResolutionDescClass>	ResArray;
 
 	friend class WW3D;
@@ -150,8 +159,8 @@ private:
 };
 
 
-inline void RenderDeviceDescClass::add_resolution(int w,int h,int bits)
-{
+inline void RenderDeviceDescClass::add_resolution(int w,int h,int bits)		
+{ 
 	bool found = false;
 	for (int i=0; i<ResArray.Count(); i++) {
 		if (	(ResArray[i].Width == w) &&
@@ -161,12 +170,12 @@ inline void RenderDeviceDescClass::add_resolution(int w,int h,int bits)
 			found = true;
 		}
 	}
-
+	
 	if (!found) {
-		ResArray.Add(ResolutionDescClass(w,h,bits));
+		ResArray.Add(ResolutionDescClass(w,h,bits)); 
 	}
 }
 
 
-#endif
+#endif 
 

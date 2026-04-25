@@ -47,6 +47,10 @@
 #include "layer.h"
 #include "w3derr.h"
 #include "robjlist.h"
+#if ENABLE_DX9_BACKEND
+#include "ww3dbackend.h"
+#include "meshrenderer.h"
+#endif
 
 class		SceneClass;
 class		CameraClass;
@@ -284,6 +288,13 @@ public:
    static int             UserStat1;
    static int             UserStat2;
 
+#if ENABLE_DX9_BACKEND
+	static WW3DBackend		*Get_Backend() { return ww3d_backend; }
+	static void				Set_Backend(WW3DBackend *backend) { ww3d_backend = backend; }
+	static MeshRenderer	*Get_MeshRenderer() { return meshRenderer; }
+	static void				Set_MeshRenderer(MeshRenderer *mr) { meshRenderer = mr; }
+#endif
+
 private:
 
 	enum
@@ -372,6 +383,11 @@ private:
 	// Memory allocation statistics
 	static int							LastFrameMemoryAllocations;
 	static int							LastFrameMemoryFrees;
+
+#if ENABLE_DX9_BACKEND
+	static WW3DBackend		*ww3d_backend;
+	static MeshRenderer		*meshRenderer;
+#endif
 };
 
 

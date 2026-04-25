@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "dx8fvf.h"
+#include "dx9/dx8fvf.h"
 #include "wwstring.h"
 #include <d3dx9mesh.h>
 

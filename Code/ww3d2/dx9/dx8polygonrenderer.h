@@ -47,10 +47,10 @@
 
 #include "always.h"
 #include "meshmdl.h"
-#include "dx8list.h"
+#include "dx9/dx8list.h"
 #include "sortingrenderer.h"
 #include "mesh.h"
-#include "dx8wrapper.h"
+#include "dx9/dx8wrapper.h"
 
 class DX8PolygonRendererClass;
 class DX8TextureCategoryClass;

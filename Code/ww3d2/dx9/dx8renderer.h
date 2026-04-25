@@ -49,9 +49,9 @@
 #include "simplevec.h"
 #include "refcount.h"
 #include "vector.h"
-#include "dx8list.h"
+#include "dx9/dx8list.h"
 #include "shader.h"
-#include "dx8wrapper.h"
+#include "dx9/dx8wrapper.h"
 #include "hashtemplate.h"
 
 class IndexBufferClass;

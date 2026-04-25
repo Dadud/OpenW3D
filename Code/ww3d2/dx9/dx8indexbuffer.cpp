@@ -38,9 +38,9 @@
 
 //#define INDEX_BUFFER_LOG
 
-#include "dx8indexbuffer.h"
-#include "dx8wrapper.h"
-#include "dx8caps.h"
+#include "dx9/dx8indexbuffer.h"
+#include "dx9/dx8wrapper.h"
+#include "dx9/dx8caps.h"
 #include "sphere.h"
 #include "thread.h"
 #include "wwmemlog.h"

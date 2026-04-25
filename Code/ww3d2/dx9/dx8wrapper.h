@@ -45,7 +45,9 @@
 
 #include "always.h"
 #include "dllist.h"
-#include <d3d9.h>
+#if ENABLE_DX9_BACKEND
+#include "../ww3dbackend.h"
+#endif
 #include "matrix4.h"
 #include "statistics.h"
 #include "wwstring.h"
@@ -53,11 +55,11 @@
 #include "shader.h"
 #include "vector4.h"
 #include "cpudetect.h"
-#include "dx8caps.h"
+#include "dx9/dx8caps.h"
 
 #include "texture.h"
-#include "dx8vertexbuffer.h"
-#include "dx8indexbuffer.h"
+#include "dx9/dx8vertexbuffer.h"
+#include "dx9/dx8indexbuffer.h"
 #include "vertmaterial.h"
 
 /*
@@ -167,6 +169,9 @@ struct RenderStateStruct
 ** D3D device will require "friend" status and should be granted only in extreme circumstances :-)
 */
 class DX8Wrapper
+#if ENABLE_DX9_BACKEND
+    : public WW3DBackend
+#endif
 {
 	enum ChangedStates {
 		WORLD_CHANGED	=	1<<0,

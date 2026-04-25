@@ -41,11 +41,14 @@
 //#define CREATE_DX8_FPU_PRESERVE
 #define WW3D_DEVTYPE D3DDEVTYPE_HAL
 
-#include "dx8wrapper.h"
-#include "dx8fvf.h"
-#include "dx8vertexbuffer.h"
-#include "dx8indexbuffer.h"
-#include "dx8renderer.h"
+#include "dx9/dx8wrapper.h"
+#if ENABLE_DX9_BACKEND
+#include "../ww3dbackend.h"
+#endif
+#include "dx9/dx8fvf.h"
+#include "dx9/dx8vertexbuffer.h"
+#include "dx9/dx8indexbuffer.h"
+#include "dx9/dx8renderer.h"
 #include "ww3d.h"
 #include "camera.h"
 #include "wwstring.h"
@@ -71,9 +74,9 @@
 #include "pot.h"
 #include "wwprofile.h"
 #include "ffactory.h"
-#include "dx8caps.h"
+#include "dx9/dx8caps.h"
 #include "formconv.h"
-#include "dx8texman.h"
+#include "dx9/dx8texman.h"
 #include "bound.h"
 #include "ini.h"
 #include "openw3d.h"

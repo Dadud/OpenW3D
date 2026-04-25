@@ -16,7 +16,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-#include "dx8rendererdebugger.h"
+#include "dx9/dx8rendererdebugger.h"
 #include "hashtemplate.h"
 #include "mesh.h"
 #include "meshmdl.h"

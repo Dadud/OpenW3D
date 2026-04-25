@@ -45,9 +45,9 @@
 
 #include "always.h"
 #include "texture.h"
-#include "dx8wrapper.h"
+#include "dx9/dx8wrapper.h"
 #include "ww3dformat.h"
-#include "dx8list.h"
+#include "dx9/dx8list.h"
 #include "ww3dformat.h"
 #include "multilist.h"
 

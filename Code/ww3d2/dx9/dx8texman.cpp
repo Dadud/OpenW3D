@@ -49,7 +49,7 @@
 // Note: It does NOT addref to textures because it is called in the texture
 // destructor
 
-#include "dx8texman.h"
+#include "dx9/dx8texman.h"
 
 DX8TextureTrackerList DX8TextureManagerClass::Managed_Textures;
 

@@ -38,8 +38,8 @@
 
 
 
-#include "dx8polygonrenderer.h"
-#include "dx8renderer.h"
+#include "dx9/dx8polygonrenderer.h"
+#include "dx9/dx8renderer.h"
 
 
 // ----------------------------------------------------------------------------
