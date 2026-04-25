@@ -227,7 +227,21 @@ void NullBackend::Set_Render_Target(void* /*target*/)
 	// NullBackend has no render target - ignore
 }
 
-void* NullBackend::_Get_DX8_Front_Buffer()
+void NullBackend::Get_Front_Buffer_Surface(BackendSurfaceHandle* out_handle)
 {
-	return nullptr;
+	if (out_handle) {
+		out_handle->D3DSurface = nullptr;
+		out_handle->BackendData = nullptr;
+	}
+}
+
+void NullBackend::Lock_Front_Buffer_Surface(BackendSurfaceHandle* /*handle*/, int /*width*/, int /*height*/, SurfaceLockData* out_data)
+{
+	if (out_data) {
+		out_data->Valid = false;
+	}
+}
+
+void NullBackend::Unlock_Front_Buffer_Surface(BackendSurfaceHandle* /*handle*/)
+{
 }

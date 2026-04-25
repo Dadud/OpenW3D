@@ -232,6 +232,7 @@ set(WW3D2_SRC
     w3d_util.h
     w3derr.h
     ww3dbackend.h
+    backends/backend_surface_handle.h
     ww3d.h
     ww3dformat.h
     ww3dids.h

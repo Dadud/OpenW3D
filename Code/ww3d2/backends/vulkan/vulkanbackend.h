@@ -92,7 +92,11 @@ public:
     virtual void Set_Render_Target(void* target) override;  // nullptr = reset to default
     virtual void Set_DX8_Render_State(int state, unsigned value) override;
     virtual void Set_Light_Environment(const void* env) override;
-    virtual void* _Get_DX8_Front_Buffer() override;
+
+    // Surface access (screenshot/movie capture)
+    virtual void Get_Front_Buffer_Surface(BackendSurfaceHandle* out_handle) override;
+    virtual void Lock_Front_Buffer_Surface(BackendSurfaceHandle* handle, int width, int height, SurfaceLockData* out_data) override;
+    virtual void Unlock_Front_Buffer_Surface(BackendSurfaceHandle* handle) override;
 
 private:
     // Vulkan objects

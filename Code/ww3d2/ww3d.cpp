@@ -1286,17 +1286,14 @@ void WW3D::Make_Screen_Shot( const char * filename_base )
 
 	// Lock front buffer and copy
 
-	IDirect3DSurface9 *fb;
-	fb=(IDirect3DSurface9*)Backend->_Get_DX8_Front_Buffer();
-	D3DSURFACE_DESC desc;
-	fb->GetDesc(&desc);
+	BackendSurfaceHandle fb;
+	Backend->Get_Front_Buffer_Surface(&fb);
 
 	RECT bounds;
 	GetWindowRect(_Hwnd,&bounds);
 
-	D3DLOCKED_RECT lrect;
-
-	DX8_ErrorCode(fb->LockRect(&lrect,&bounds,D3DLOCK_READONLY));
+	SurfaceLockData lockData;
+	Backend->Lock_Front_Buffer_Surface(&fb, bounds.right-bounds.left, bounds.bottom-bounds.top, &lockData);
 
 	unsigned int x,y,index,index2,width,height;
 
@@ -1305,22 +1302,24 @@ void WW3D::Make_Screen_Shot( const char * filename_base )
 
 	char *image=new char[3*width*height];
 
-	for (y=0; y<height; y++)
-	{
-		for (x=0; x<width; x++)
+	if (lockData.Valid) {
+		for (y=0; y<height; y++)
 		{
-			// index for image
-			index=3*(x+y*width);
-			// index for fb
-			index2=y*lrect.Pitch+4*x;
+			for (x=0; x<width; x++)
+			{
+				// index for image
+				index=3*(x+y*width);
+				// index for fb
+				index2=y*lockData.RowPitch+4*x;
 
-			image[index]=*((char *) lrect.pBits + index2+2);
-			image[index+1]=*((char *) lrect.pBits + index2+1);
-			image[index+2]=*((char *) lrect.pBits + index2+0);
+				image[index]=*((char *) lockData.PixelData + index2+2);
+				image[index+1]=*((char *) lockData.PixelData + index2+1);
+				image[index+2]=*((char *) lockData.PixelData + index2+0);
+			}
 		}
 	}
 
-	fb->Release();
+	Backend->Unlock_Front_Buffer_Surface(&fb);
 
 	Targa targ;
 	memset(&targ.Header,0,sizeof(targ.Header));
@@ -1569,17 +1568,14 @@ void WW3D::Update_Movie_Capture( void )
 
 		// Lock front buffer and copy
 
-	IDirect3DSurface9 *fb;
-	fb=(IDirect3DSurface9*)Backend->_Get_DX8_Front_Buffer();
-	D3DSURFACE_DESC desc;
-	fb->GetDesc(&desc);
+	BackendSurfaceHandle fb;
+	Backend->Get_Front_Buffer_Surface(&fb);
 
 	RECT bounds;
 	GetWindowRect(_Hwnd,&bounds);
 
-	D3DLOCKED_RECT lrect;
-
-	DX8_ErrorCode(fb->LockRect(&lrect,&bounds,D3DLOCK_READONLY));
+	SurfaceLockData lockData;
+	Backend->Lock_Front_Buffer_Surface(&fb, bounds.right-bounds.left, bounds.bottom-bounds.top, &lockData);
 
 	unsigned int x,y,index,index2,width,height;
 
@@ -1588,22 +1584,24 @@ void WW3D::Update_Movie_Capture( void )
 
 	char *image=(char *)Movie->GetBuffer();
 
-	for (y=0; y<height; y++)
-	{
-		for (x=0; x<width; x++)
+	if (lockData.Valid) {
+		for (y=0; y<height; y++)
 		{
-			// index for image
-			index=3*(x+(height-y-1)*width);
-			// index for fb
-			index2=y*lrect.Pitch+4*x;
+			for (x=0; x<width; x++)
+			{
+				// index for image
+				index=3*(x+(height-y-1)*width);
+				// index for fb
+				index2=y*lockData.RowPitch+4*x;
 
-			image[index]=*((char *) lrect.pBits + index2+0);
-			image[index+1]=*((char *) lrect.pBits + index2+1);
-			image[index+2]=*((char *) lrect.pBits + index2+2);
+				image[index]=*((char *) lockData.PixelData + index2+0);
+			image[index+1]=*((char *) lockData.PixelData + index2+1);
+			image[index+2]=*((char *) lockData.PixelData + index2+2);
+			}
 		}
 	}
 
-	fb->Release();
+	Backend->Unlock_Front_Buffer_Surface(&fb);
 
 	Movie->Grab(image);
 #endif

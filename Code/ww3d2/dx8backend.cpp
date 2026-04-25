@@ -30,6 +30,7 @@
 
 #include "dx8backend.h"
 #include "dx8wrapper.h"
+#include "backends/backend_surface_handle.h"
 
 DX8Backend::DX8Backend() :
     m_hwnd(nullptr)
@@ -222,7 +223,38 @@ void DX8Backend::Set_Render_Target(void* target)
     }
 }
 
-void* DX8Backend::_Get_DX8_Front_Buffer()
+void DX8Backend::Get_Front_Buffer_Surface(BackendSurfaceHandle* out_handle)
 {
-    return DX8Wrapper::_Get_DX8_Front_Buffer();
+    if (out_handle) {
+        out_handle->D3DSurface = DX8Wrapper::_Get_DX8_Front_Buffer();
+        out_handle->BackendData = nullptr;
+    }
+}
+
+void DX8Backend::Lock_Front_Buffer_Surface(BackendSurfaceHandle* handle, int /*width*/, int /*height*/, SurfaceLockData* out_data)
+{
+    if (!out_data || !handle || !handle->D3DSurface) {
+        if (out_data) out_data->Valid = false;
+        return;
+    }
+
+    RECT bounds;
+    GetWindowRect(static_cast<HWND>(m_hwnd), &bounds);
+
+    D3DLOCKED_RECT lrect;
+    HRESULT hr = handle->D3DSurface->LockRect(&lrect, &bounds, D3DLOCK_READONLY);
+    if (SUCCEEDED(hr)) {
+        out_data->PixelData = lrect.pBits;
+        out_data->RowPitch = lrect.Pitch;
+        out_data->Valid = true;
+    } else {
+        out_data->Valid = false;
+    }
+}
+
+void DX8Backend::Unlock_Front_Buffer_Surface(BackendSurfaceHandle* handle)
+{
+    if (handle && handle->D3DSurface) {
+        handle->D3DSurface->UnlockRect();
+    }
 }

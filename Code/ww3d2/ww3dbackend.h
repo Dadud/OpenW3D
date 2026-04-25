@@ -40,6 +40,25 @@ class SceneClass;
 class RenderDeviceDescClass;
 
 /************************************************************************************************
+ * BackendSurfaceHandle - opaque handle to a backend-specific surface.                           *
+ * Call sites use Get_Front_Buffer_Surface/Lock/Unlock rather than raw D3D types.              *
+ ************************************************************************************************/
+struct BackendSurfaceHandle;
+
+/************************************************************************************************
+ * SurfaceLockData - result of locking a surface for reading.                                 *
+ * Used by screenshot/movie capture code.                                                     *
+ ************************************************************************************************/
+struct SurfaceLockData
+{
+    void* PixelData;     // pointer to pixel data
+    int RowPitch;        // bytes per row
+    bool Valid;          // true if lock succeeded
+
+    SurfaceLockData() : PixelData(nullptr), RowPitch(0), Valid(false) {}
+};
+
+/************************************************************************************************
  * PresentationDescriptor - backend-agnostic description of a swapchain/present target.         *
  * Used when creating or configuring a swapchain through Create_Swapchain().                     *
  ************************************************************************************************/
@@ -130,7 +149,11 @@ public:
     virtual void Set_Render_Target(void* target) = 0;  // nullptr = reset to default render target
     virtual void Set_DX8_Render_State(int state, unsigned value) = 0;
     virtual void Set_Light_Environment(const void* env) = 0;
-    virtual void* _Get_DX8_Front_Buffer() = 0;
+
+    // Surface access (screenshot/movie capture)
+    virtual void Get_Front_Buffer_Surface(BackendSurfaceHandle* out_handle) = 0;
+    virtual void Lock_Front_Buffer_Surface(BackendSurfaceHandle* handle, int width, int height, SurfaceLockData* out_data) = 0;
+    virtual void Unlock_Front_Buffer_Surface(BackendSurfaceHandle* handle) = 0;
 };
 
 #endif // WW3DBACKEND_H

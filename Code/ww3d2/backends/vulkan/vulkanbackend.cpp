@@ -29,6 +29,7 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #include "vulkanbackend.h"
+#include "../backend_surface_handle.h"
 
 namespace
 {
@@ -705,8 +706,21 @@ void VulkanBackend::Set_Light_Environment(const void* /*env*/)
     // No-op: light state is handled elsewhere in mesh rendering pipeline
 }
 
-void* VulkanBackend::_Get_DX8_Front_Buffer()
+void VulkanBackend::Get_Front_Buffer_Surface(BackendSurfaceHandle* out_handle)
 {
-    // Not applicable for Vulkan - no direct front buffer access
-    return nullptr;
+    if (out_handle) {
+        out_handle->D3DSurface = nullptr;
+        out_handle->BackendData = nullptr;
+    }
+}
+
+void VulkanBackend::Lock_Front_Buffer_Surface(BackendSurfaceHandle* /*handle*/, int /*width*/, int /*height*/, SurfaceLockData* out_data)
+{
+    if (out_data) {
+        out_data->Valid = false;
+    }
+}
+
+void VulkanBackend::Unlock_Front_Buffer_Surface(BackendSurfaceHandle* /*handle*/)
+{
 }
