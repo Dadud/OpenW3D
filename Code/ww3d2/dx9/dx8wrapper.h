@@ -336,6 +336,7 @@ public:
 	void Set_Texture(BackendTextureHandle handle, unsigned int stage) override;
 	BackendTextureHandle Get_Missing_Texture() override;
 	BackendSurfaceHandle Create_Missing_Surface() override;
+	MeshRenderer* Create_MeshRenderer() override;
 	// Cast helpers for internal DX9 use
 	IDirect3DTexture9* Get_DX9_Texture(BackendTextureHandle h) { return static_cast<IDirect3DTexture9*>(h); }
 	IDirect3DSurface9* Get_DX9_Surface(BackendSurfaceHandle h) { return static_cast<IDirect3DSurface9*>(h); }

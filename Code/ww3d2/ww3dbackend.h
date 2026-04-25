@@ -6,6 +6,7 @@
 #include "rddesc.h"
 #include "index.h"
 #include "ww3dformat.h"
+#include "meshrenderer.h"
 
 // Opaque handles for backend-agnostic texture/surface access.
 // The concrete backend (DX9, Vulkan, etc.) maps these to real API handles.
@@ -69,6 +70,11 @@ public:
     // Missing texture helpers -- backend-specific fallback for error handling.
     virtual BackendTextureHandle Get_Missing_Texture() = 0;
     virtual BackendSurfaceHandle Create_Missing_Surface() = 0;
+
+    virtual MeshRenderer* Create_MeshRenderer() = 0;
+
+    // Factory method to create a NullBackend for non-GPU platforms
+    static WW3DBackend* Create_Null_Backend();
 };
 
 #endif // WW3DBACKEND_H

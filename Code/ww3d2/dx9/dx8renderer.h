@@ -53,6 +53,7 @@
 #include "shader.h"
 #include "dx8wrapper.h"
 #include "hashtemplate.h"
+#include "../meshrenderer.h"
 
 class IndexBufferClass;
 class VertexBufferClass;
@@ -337,7 +338,7 @@ inline unsigned int HashTemplateKeyClass<MeshRegKeyStruct>::Get_Hash_Value(const
 ** the visible mesh fragments is composed and rendered.  There is a global instance of this
 ** class called TheDX8MeshRenderer that should be used for all mesh rendering.
 */
-class DX8MeshRendererClass
+class DX8MeshRendererClass : public MeshRenderer
 {
 public:
 	DX8MeshRendererClass();

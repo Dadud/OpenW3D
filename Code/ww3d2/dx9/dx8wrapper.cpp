@@ -2349,6 +2349,11 @@ BackendSurfaceHandle DX8Wrapper::Create_Missing_Surface()
 {
 	return MissingTexture::_Create_Missing_Surface();
 }
+
+MeshRenderer* DX8Wrapper::Create_MeshRenderer()
+{
+	return new DX8MeshRendererClass();
+}
 #endif // ENABLE_DX9_BACKEND
 
 
