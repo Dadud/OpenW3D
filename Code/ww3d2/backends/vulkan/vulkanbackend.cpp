@@ -1,6 +1,6 @@
 /*
 **	Command & Conquer Renegade(tm)
-**	Copyright 2025 Electronic Arts Inc.
+**	Community contribution - Licensed under GPLv3
 **
 **	This program is free software: you can redistribute it and/or modify
 **	it under the terms of the GNU General Public License as published by
