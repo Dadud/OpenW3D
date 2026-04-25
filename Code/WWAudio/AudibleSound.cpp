@@ -888,17 +888,7 @@ AudibleSoundClass::Set_Pitch_Factor (float factor)
 	// Do we have a valid sample handle from miles?
 	//
 	if (m_SoundHandle != NULL) {
-
-		if (m_Buffer != NULL) {
-
-			//
-			//	Get the base rate of the sound and scale our playback rate
-			// based on the factor
-			//
-			int base_rate	= m_Buffer->Get_Rate ();
-			int new_rate	= base_rate * m_PitchFactor;
-			m_SoundHandle->Set_Sample_Playback_Rate (new_rate);
-		}
+		m_SoundHandle->Set_Sample_Pitch(m_PitchFactor);
 	}
 
 	return ;
@@ -1069,6 +1059,13 @@ AudibleSoundClass::On_Frame_Update (unsigned int /* milliseconds */)
 		m_LogicalSound->Set_Transform (m_Transform);
 	}
 
+	//
+	// OpenAL addition, attempt to queue audio if the handle buffer is streaming.
+	//
+	if (m_SoundHandle != NULL) {
+		m_SoundHandle->Queue_Audio();
+	}
+	
 	return true;
 }
 

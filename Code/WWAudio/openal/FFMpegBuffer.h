@@ -1,6 +1,7 @@
 /*
 **	Command & Conquer Renegade(tm)
 **	Copyright 2025 Electronic Arts Inc.
+**	Copyright 2026 OpenW3D Contributors.
 **
 **	This program is free software: you can redistribute it and/or modify
 **	it under the terms of the GNU General Public License as published by
@@ -39,10 +40,12 @@
 #pragma once
 #endif
 
-#ifndef __MILESSOUNDBUFFER_H
-#define __MILESSOUNDBUFFER_H
+#ifndef __FFMPEGBUFFER_H
+#define __FFMPEGBUFFER_H
 
 #include "SoundBuffer.h"
+#include "FFmpegFile.h"
+#include <vector>
 
 
 // Forward declarations
@@ -55,27 +58,27 @@ class FileClass;
 //	A sound buffer manages the raw sound data for any of the SoundObj types
 // except for the StreamSoundClass object.
 //
-class SingleSoundBufferClass : public SoundBufferClass
+class FFMpegBufferClass : public SoundBufferClass
 {
 	public:
 
 		//////////////////////////////////////////////////////////////////////
 		//	Public constructors/destructors
 		//////////////////////////////////////////////////////////////////////
-		SingleSoundBufferClass (void);
-		~SingleSoundBufferClass (void) override;
+		FFMpegBufferClass (void);
+		~FFMpegBufferClass (void) override;
 
 		//////////////////////////////////////////////////////////////////////
 		//	File methods
 		//////////////////////////////////////////////////////////////////////
 		bool				Load_From_File (const char *filename) override;
-		bool				Load_From_File (FileClass &file) override;
+		bool				Load_From_File (FileClass &/* file */) override { return false; }
 
 		//////////////////////////////////////////////////////////////////////
 		//	Buffer access
-		//////////////////////////////////////////////////////////////////////
-		unsigned char *	Get_Raw_Buffer (void) const override	{ return m_Buffer; }
-		unsigned int	Get_Raw_Length (void) const override	{ return m_Length; }
+		//////////////////////////////////////////////////////////////////////		
+		unsigned char *	Get_Raw_Buffer (void) const override	{ return m_Buffer.data(); }
+		unsigned int	Get_Raw_Length (void) const override	{ return m_Buffer.size(); }
 
 		//////////////////////////////////////////////////////////////////////
 		//	Information methods
@@ -86,73 +89,28 @@ class SingleSoundBufferClass : public SoundBufferClass
 		unsigned int	Get_Rate (void) const override { return m_Rate; }
 		unsigned int	Get_Bits (void) const override { return m_Bits; }
 		unsigned int	Get_Channels (void) const override { return m_Channels; }
-		unsigned int	Get_Type (void) const override{ return m_Type; }
+		unsigned int	Get_Type (void) const override{ return 0; } // Unused as we don't care what the type is.
 
 		//////////////////////////////////////////////////////////////////////
 		//	Type methods
 		//////////////////////////////////////////////////////////////////////
-		bool				Is_Streaming (void) const override	{ return false; }
+		bool				Is_Streaming (void) const override	{ return true; }
 
+		bool 			Refresh_Buffer(void);
+		void 			Reset_Buffer(void);
 	protected:
-
-		//////////////////////////////////////////////////////////////////////
-		//	Protected methods
-		//////////////////////////////////////////////////////////////////////
-		virtual void			Free_Buffer (void);
-		void			Determine_Stats (unsigned char *buffer);
-
 		//////////////////////////////////////////////////////////////////////
 		//	Protected member data
 		//////////////////////////////////////////////////////////////////////
-		unsigned char *		m_Buffer;
-		unsigned int			m_Length;
+		FFmpegFile m_FileHandle;
+		mutable std::vector<unsigned char>		m_Buffer;
 		char *					m_Filename;
 		unsigned int			m_Duration;
 		unsigned int			m_Rate;
 		unsigned int			m_Bits;
 		unsigned int			m_Channels;
-		unsigned int			m_Type;
-};
-
-/////////////////////////////////////////////////////////////////////////////////
-//
-//	StreamSoundBufferClass
-//
-//	A sound buffer manages the raw sound data for any of the SoundObj types
-// except for the StreamSoundClass object.
-//
-class StreamSoundBufferClass : public SingleSoundBufferClass
-{
-	public:
-
-		//////////////////////////////////////////////////////////////////////
-		//	Public constructors/destructors
-		//////////////////////////////////////////////////////////////////////
-		StreamSoundBufferClass (void);
-		~StreamSoundBufferClass (void);
-
-		//////////////////////////////////////////////////////////////////////
-		//	File methods
-		//////////////////////////////////////////////////////////////////////
-		bool			Load_From_File (const char *filename) override;
-		bool			Load_From_File (FileClass &file) override;
-
-		//////////////////////////////////////////////////////////////////////
-		//	Type methods
-		//////////////////////////////////////////////////////////////////////
-		bool			Is_Streaming (void) const override		{ return true; }
-
-	protected:
-
-		//////////////////////////////////////////////////////////////////////
-		//	Protected methods
-		//////////////////////////////////////////////////////////////////////
-		void			Free_Buffer (void) override;
-
-		//////////////////////////////////////////////////////////////////////
-		//	Protected member data
-		//////////////////////////////////////////////////////////////////////
+		unsigned int			m_MaxBuffer;
 };
 
 
-#endif //__MILESSOUNDBUFFER_H
+#endif //__FFMPEGBUFFER_H
