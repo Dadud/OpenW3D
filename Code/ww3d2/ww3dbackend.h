@@ -65,6 +65,10 @@ public:
     virtual BackendTextureHandle Create_Texture(int width, int height, WW3DFormat format, int mip_level_count, int pool, bool render_target) = 0;
     virtual BackendSurfaceHandle Create_Surface(int width, int height, WW3DFormat format, int pool) = 0;
     virtual void Set_Texture(BackendTextureHandle handle, unsigned int stage) = 0;
+
+    // Missing texture helpers -- backend-specific fallback for error handling.
+    virtual BackendTextureHandle Get_Missing_Texture() = 0;
+    virtual BackendSurfaceHandle Create_Missing_Surface() = 0;
 };
 
 #endif // WW3DBACKEND_H

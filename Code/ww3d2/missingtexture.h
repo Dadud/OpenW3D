@@ -24,6 +24,7 @@
 #define DX8_MISSING_TEXTURE_H
 
 #include "always.h"
+#if ENABLE_DX9_BACKEND
 
 struct IDirect3DTexture9;
 struct IDirect3DSurface9;
@@ -37,6 +38,8 @@ public:
 	static IDirect3DTexture9* _Get_Missing_Texture();		// Return a reference to missing texture
 	static IDirect3DSurface9* _Create_Missing_Surface();	// Create new surface which contain missing texture image
 };
+
+#endif // ENABLE_DX9_BACKEND
 
 
 #endif // DX8_MISSING_TEXTURE

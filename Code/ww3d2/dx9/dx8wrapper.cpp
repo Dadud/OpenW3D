@@ -2339,6 +2339,16 @@ void DX8Wrapper::Set_Texture(BackendTextureHandle handle, unsigned int stage)
 {
 	Set_DX8_Texture(stage, static_cast<IDirect3DBaseTexture9*>(handle));
 }
+
+BackendTextureHandle DX8Wrapper::Get_Missing_Texture()
+{
+	return MissingTexture::_Get_Missing_Texture();
+}
+
+BackendSurfaceHandle DX8Wrapper::Create_Missing_Surface()
+{
+	return MissingTexture::_Create_Missing_Surface();
+}
 #endif // ENABLE_DX9_BACKEND
 
 

@@ -334,6 +334,8 @@ public:
 	BackendTextureHandle Create_Texture(int width, int height, WW3DFormat format, int mip_level_count, int pool, bool render_target) override;
 	BackendSurfaceHandle Create_Surface(int width, int height, WW3DFormat format, int pool) override;
 	void Set_Texture(BackendTextureHandle handle, unsigned int stage) override;
+	BackendTextureHandle Get_Missing_Texture() override;
+	BackendSurfaceHandle Create_Missing_Surface() override;
 	// Cast helpers for internal DX9 use
 	IDirect3DTexture9* Get_DX9_Texture(BackendTextureHandle h) { return static_cast<IDirect3DTexture9*>(h); }
 	IDirect3DSurface9* Get_DX9_Surface(BackendSurfaceHandle h) { return static_cast<IDirect3DSurface9*>(h); }

@@ -538,17 +538,17 @@ void TextureClass::Load_Locked_Surface()
 
 bool TextureClass::Is_Missing_Texture()
 {
+#if ENABLE_DX9_BACKEND
 	bool flag = false;
-	IDirect3DTexture9 *missing_texture = MissingTexture::_Get_Missing_Texture();
+	BackendTextureHandle missing_texture = WW3D::Get_Backend()->Get_Missing_Texture();
 
 	if(m_BackendTexture == missing_texture)
 		flag = true;
 
-	if(missing_texture) {
-		missing_texture->Release();
-	}
-
 	return flag;
+#else
+	return false;
+#endif
 }
 
 // ----------------------------------------------------------------------------
