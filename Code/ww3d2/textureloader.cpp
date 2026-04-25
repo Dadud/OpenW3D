@@ -356,7 +356,7 @@ void TextureLoader::Validate_Texture_Size(unsigned& width, unsigned& height)
 	height=poweroftwoheight;
 }
 
-IDirect3DTexture9* TextureLoader::Load_Thumbnail(const StringClass& filename)//,WW3DFormat texture_format)
+BackendTextureHandle TextureLoader::Load_Thumbnail(const StringClass& filename)//,WW3DFormat texture_format
 {
 	WWASSERT(Is_DX8_Thread());
 
@@ -371,7 +371,7 @@ IDirect3DTexture9* TextureLoader::Load_Thumbnail(const StringClass& filename)//,
 	// If no thumb is found return a missing texture
 	if (!thumb) {
 #if ENABLE_DX9_BACKEND
-		return MissingTexture::_Get_Missing_Texture();
+		return static_cast<BackendTextureHandle>(MissingTexture::_Get_Missing_Texture());
 #else
 		return nullptr;
 #endif
@@ -468,7 +468,7 @@ IDirect3DTexture9* TextureLoader::Load_Thumbnail(const StringClass& filename)//,
 // format and performs color space conversion.
 //
 // ----------------------------------------------------------------------------
-IDirect3DSurface9* TextureLoader::Load_Surface_Immediate(
+BackendSurfaceHandle TextureLoader::Load_Surface_Immediate(
 	const StringClass& filename,
 	WW3DFormat texture_format,
 	bool allow_compression)
@@ -491,7 +491,7 @@ IDirect3DSurface9* TextureLoader::Load_Surface_Immediate(
 	Targa targa;
 	if (TARGA_ERROR_HANDLER(targa.Open(filename, TGA_READMODE),filename)) {
 #if ENABLE_DX9_BACKEND
-		return MissingTexture::_Create_Missing_Surface();
+		return static_cast<BackendSurfaceHandle>(MissingTexture::_Create_Missing_Surface());
 #else
 		return nullptr;
 #endif
@@ -520,7 +520,7 @@ IDirect3DSurface9* TextureLoader::Load_Surface_Immediate(
 	targa.SetPalette(palette);
 	if (TARGA_ERROR_HANDLER(targa.Load(filename, TGAF_IMAGE, false),filename)) {
 #if ENABLE_DX9_BACKEND
-		return MissingTexture::_Create_Missing_Surface();
+		return static_cast<BackendSurfaceHandle>(MissingTexture::_Create_Missing_Surface());
 #else
 		return nullptr;
 #endif
@@ -913,14 +913,15 @@ void TextureLoader::Load_Thumbnail(TextureClass *tc)
 	WWASSERT(Is_DX8_Thread());
 
 	// load thumbnail texture
-	IDirect3DTexture9 *d3d_texture = Load_Thumbnail(tc->Get_Full_Path());
+	BackendTextureHandle thumb_tex = Load_Thumbnail(tc->Get_Full_Path());
 
 	// apply thumbnail to texture
-	tc->Apply_New_Surface(d3d_texture, false);
+	tc->Apply_New_Surface(thumb_tex, false);
 
 	// release our reference to thumbnail texture
-	d3d_texture->Release();
-	d3d_texture = 0;
+	if (thumb_tex) {
+		static_cast<IDirect3DTexture9*>(thumb_tex)->Release();
+	}
 }
 
 
@@ -1198,7 +1199,7 @@ void TextureLoadTaskClass::Apply_Missing_Texture(void)
 	WWASSERT(!D3DTexture);
 
 #if ENABLE_DX9_BACKEND
-	D3DTexture = MissingTexture::_Get_Missing_Texture();
+	D3DTexture = static_cast<BackendTextureHandle>(MissingTexture::_Get_Missing_Texture());
 	Apply(true);
 #endif
 }
@@ -1215,7 +1216,7 @@ void TextureLoadTaskClass::Apply(bool initialize)
 
 	Texture->Apply_New_Surface(D3DTexture, initialize);
 
-	D3DTexture->Release();
+	static_cast<IDirect3DTexture9*>(D3DTexture)->Release();
 	D3DTexture = NULL;
 }
 
@@ -1410,11 +1411,11 @@ bool TextureLoadTaskClass::Begin_Uncompressed_Load(void)
 
 void TextureLoadTaskClass::Lock_Surfaces(void)
 {
-	MipLevelCount = D3DTexture->GetLevelCount();
+	MipLevelCount = static_cast<IDirect3DTexture9*>(D3DTexture)->GetLevelCount();
 	for (unsigned int i = 0; i < MipLevelCount; ++i) {
 		D3DLOCKED_RECT locked_rect;
 		DX8_ErrorCode(
-			D3DTexture->LockRect(
+			static_cast<IDirect3DTexture9*>(D3DTexture)->LockRect(
 				i,
 				&locked_rect,
 				NULL,
@@ -1430,15 +1431,15 @@ void TextureLoadTaskClass::Unlock_Surfaces(void)
 	for (unsigned int i = 0; i < MipLevelCount; ++i) {
 		if (LockedSurfacePtr[i]) {
 			WWASSERT(ThreadClass::Get_Current_Thread_ID() == DX8Wrapper::_Get_Main_Thread_ID());
-			DX8_ErrorCode(D3DTexture->UnlockRect(i));
+			DX8_ErrorCode(static_cast<IDirect3DTexture9*>(D3DTexture)->UnlockRect(i));
 		}
 		LockedSurfacePtr[i] = NULL;
 	}
 
 #ifndef USE_MANAGED_TEXTURES
 	IDirect3DTexture9* tex = DX8Wrapper::_Create_DX8_Texture(Width, Height, Format, Texture->MipLevelCount,D3DPOOL_DEFAULT);
-	DX8CALL(UpdateTexture(D3DTexture,tex));
-	D3DTexture->Release();
+	DX8CALL(UpdateTexture(static_cast<IDirect3DTexture9*>(D3DTexture),tex));
+	static_cast<IDirect3DTexture9*>(D3DTexture)->Release();
 	D3DTexture=tex;
 	WWDEBUG_SAY(("Created non-managed texture (%s)\n",Texture->Get_Full_Path()));
 #endif
