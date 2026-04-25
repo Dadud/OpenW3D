@@ -170,6 +170,12 @@ float														WW3D::PixelCenterY = 0.0f;
 
 
 bool														WW3D::IsInitted = false;
+
+#if ENABLE_DX9_BACKEND
+WW3DBackend									*WW3D::ww3d_backend = nullptr;
+MeshRenderer									*WW3D::meshRenderer = nullptr;
+#endif
+
 bool														WW3D::IsRendering = false;
 bool														WW3D::IsCapturing = false;
 bool														WW3D::IsScreenUVBiased = false;
@@ -267,10 +273,18 @@ WW3DErrorType WW3D::Init(void *hwnd, char * /*defaultpal*/, bool lite)
 	** Initialize d3d, this also enumerates the available devices and resolutions.
 	*/
 	Init_D3D_To_WW3_Conversion();
-	WWDEBUG_SAY(("Init DX8Wrapper\n"));
+	WWDEBUG_SAY(("Init Backend\n"));
+#if ENABLE_DX9_BACKEND
+	ww3d_backend = new DX8Wrapper();
+	if (!ww3d_backend->Init(_Hwnd, lite)) {
+		return(WW3D_ERROR_DIRECTX8_INITIALIZATION_FAILED);
+	}
+#else
 	if (!DX8Wrapper::Init(_Hwnd, lite)) {
 		return(WW3D_ERROR_DIRECTX8_INITIALIZATION_FAILED);
 	}
+#endif
+
 	WWDEBUG_SAY(("Allocate Debug Resources\n"));
 	Allocate_Debug_Resources();
 
@@ -353,8 +367,14 @@ WW3DErrorType WW3D::Shutdown(void)
 
 	DX8TextureManagerClass::Shutdown();
 	if (!Lite) {
+#if ENABLE_DX9_BACKEND
+		ww3d_backend->Shutdown();
+		delete ww3d_backend;
+#else
 		DX8Wrapper::Shutdown();
+#endif
 	}
+
 
 	/*
 	** Clear the default static sort lists

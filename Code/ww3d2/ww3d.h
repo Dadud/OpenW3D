@@ -225,6 +225,14 @@ public:
 	static ShaderClass		Peek_Backface_Debug_Shader(void);
 	static ShaderClass		Peek_Lightmap_Debug_Shader(void);
 
+#if ENABLE_DX9_BACKEND
+	static WW3DBackend		*Get_Backend() { return ww3d_backend; }
+	static void				Set_Backend(WW3DBackend *backend) { ww3d_backend = backend; }
+	static MeshRenderer		*Get_MeshRenderer() { return meshRenderer; }
+	static void				Set_MeshRenderer(MeshRenderer *mr) { meshRenderer = mr; }
+#endif
+
+
 	static void					Set_Prelit_Mode (PrelitModeEnum mode)			{ PrelitMode = mode; }
 	static PrelitModeEnum 	Get_Prelit_Mode ()									{ return (PrelitMode); }
 	static bool					Supports_Prelit_Mode (PrelitModeEnum /* mode */)	{ return (true); }
@@ -372,6 +380,11 @@ private:
 	// Memory allocation statistics
 	static int							LastFrameMemoryAllocations;
 	static int							LastFrameMemoryFrees;
+
+#if ENABLE_DX9_BACKEND
+	static WW3DBackend		*ww3d_backend;
+	static MeshRenderer		*meshRenderer;
+#endif
 };
 
 
