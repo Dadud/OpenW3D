@@ -44,8 +44,10 @@
 
 #include "vector.h"
 #include "wwstring.h"
+#if ENABLE_DX9_BACKEND
 #include <d3d9types.h>
 #include <d3d9caps.h>
+#endif
 
 class ResolutionDescClass
 {
@@ -88,8 +90,10 @@ public:
 		set_hardware_name(src.Get_Hardware_Name());
 		set_hardware_vendor(src.Get_Hardware_Vendor());
 		set_hardware_chipset(src.Get_Hardware_Chipset());
+#if ENABLE_DX9_BACKEND
 		Caps=src.Caps;
 		AdapterIdentifier=src.AdapterIdentifier;
+#endif
 		ResArray = src.ResArray;
 		return *this;
 	}
@@ -110,8 +114,12 @@ public:
 	const char *		Get_Hardware_Chipset() const	{ return HardwareChipset; }
 
 	const DynamicVectorClass<ResolutionDescClass> & Enumerate_Resolutions(void) const	{ return ResArray; }
+#if ENABLE_DX9_BACKEND
 	const D3DCAPS9& 	Get_Caps() const { return Caps; }
+#endif
+#if ENABLE_DX9_BACKEND
 	const D3DADAPTER_IDENTIFIER9& Get_Adapter_Identifier() const { return AdapterIdentifier; }
+#endif
 
 private:
 
@@ -140,8 +148,12 @@ private:
 	StringClass			HardwareVendor;
 	StringClass			HardwareChipset;
 
+#if ENABLE_DX9_BACKEND
 	D3DCAPS9				Caps;
+#endif
+#if ENABLE_DX9_BACKEND
 	D3DADAPTER_IDENTIFIER9 AdapterIdentifier;
+#endif
 
 	DynamicVectorClass<ResolutionDescClass>	ResArray;
 
