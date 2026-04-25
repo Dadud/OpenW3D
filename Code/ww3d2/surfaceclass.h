@@ -45,15 +45,14 @@
 
 #include "ww3dformat.h"
 #include "refcount.h"
-
-struct IDirect3DSurface9;
+#include "ww3dbackend.h"
 class Vector2i;
 class Vector3;
 
 /*************************************************************************
 **                             SurfaceClass
 **
-** This is our surface class, which wraps IDirect3DSurface9.
+** This is our surface class, which wraps a backend surface handle.
 **
 ** Hector Yee 2/12/01 - added in fills, blits etc for font3d class
 **
@@ -81,7 +80,7 @@ class SurfaceClass : public RefCountClass
 		SurfaceClass(const char *filename);
 
 		// Create the surface from a D3D pointer
-		SurfaceClass(IDirect3DSurface9 *d3d_surface);
+		SurfaceClass(BackendSurfaceHandle surface);
 
 		~SurfaceClass(void);
 
@@ -125,10 +124,10 @@ class SurfaceClass : public RefCountClass
 		unsigned char *CreateCopy(int *width,int *height,int*size,bool flip=false);
 
 			// For use by TextureClass:
-		IDirect3DSurface9 *Peek_D3D_Surface(void) { return D3DSurface; }
+		BackendSurfaceHandle Peek_Backend_Surface(void) { return m_BackendSurface; }
 
 		// Attaching and detaching a surface pointer
-		void	Attach (IDirect3DSurface9 *surface);
+		void	Attach (BackendSurfaceHandle surface);
 		void	Detach (void);
 
 		// draws a horizontal line
@@ -155,7 +154,7 @@ class SurfaceClass : public RefCountClass
 	private:
 
 		// Direct3D surface object
-		IDirect3DSurface9 *D3DSurface;
+		BackendSurfaceHandle m_BackendSurface;
 
 		WW3DFormat SurfaceFormat;
 	friend class TextureClass;

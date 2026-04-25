@@ -2316,6 +2316,31 @@ IDirect3DSurface9 * DX8Wrapper::_Create_DX8_Surface(const char *filename_)
 	return surface;
 }
 
+#if ENABLE_DX9_BACKEND
+/***********************************************************************************************
+ * DX8Wrapper Backend Factory Methods -- WW3DBackend interface implementation                  *
+ *=============================================================================================*/
+BackendTextureHandle DX8Wrapper::Create_Texture(int width, int height, WW3DFormat format, int mip_level_count, int pool, bool render_target)
+{
+	D3DPOOL d3dpool = (pool == TextureClass::POOL_SYSTEMMEM) ? D3DPOOL_SYSTEMMEM : D3DPOOL_DEFAULT;
+	IDirect3DTexture9* tex = _Create_DX8_Texture(
+		width, height, format, (TextureClass::MipCountType)mip_level_count, d3dpool, render_target);
+	return static_cast<BackendTextureHandle>(tex);
+}
+
+BackendSurfaceHandle DX8Wrapper::Create_Surface(int width, int height, WW3DFormat format, int pool)
+{
+	D3DPOOL d3dpool = (pool == TextureClass::POOL_SYSTEMMEM) ? D3DPOOL_SYSTEMMEM : D3DPOOL_DEFAULT;
+	IDirect3DSurface9* surf = _Create_DX8_Surface(width, height, d3dpool, format);
+	return static_cast<BackendSurfaceHandle>(surf);
+}
+
+void DX8Wrapper::Set_Texture(BackendTextureHandle handle, unsigned int stage)
+{
+	Set_DX8_Texture(stage, static_cast<IDirect3DBaseTexture9*>(handle));
+}
+#endif // ENABLE_DX9_BACKEND
+
 
 /***********************************************************************************************
  * DX8Wrapper::_Update_Texture -- Copies a texture from system memory to video memory          *

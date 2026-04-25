@@ -329,6 +329,15 @@ public:
 
 	static IDirect3DSurface9 * _Create_DX8_Surface(unsigned int width, unsigned int height, D3DPOOL pool, WW3DFormat format);
 	static IDirect3DSurface9 * _Create_DX8_Surface(const char *filename);
+#if ENABLE_DX9_BACKEND
+	// WW3DBackend factory methods -- backend-agnostic handle creation
+	BackendTextureHandle Create_Texture(int width, int height, WW3DFormat format, int mip_level_count, int pool, bool render_target) override;
+	BackendSurfaceHandle Create_Surface(int width, int height, WW3DFormat format, int pool) override;
+	void Set_Texture(BackendTextureHandle handle, unsigned int stage) override;
+	// Cast helpers for internal DX9 use
+	IDirect3DTexture9* Get_DX9_Texture(BackendTextureHandle h) { return static_cast<IDirect3DTexture9*>(h); }
+	IDirect3DSurface9* Get_DX9_Surface(BackendSurfaceHandle h) { return static_cast<IDirect3DSurface9*>(h); }
+#endif
 	static IDirect3DSurface9 * _Get_DX8_Front_Buffer();
 	static SurfaceClass * _Get_DX8_Back_Buffer(unsigned int num=0);
 

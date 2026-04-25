@@ -5,6 +5,12 @@
 #include "scene.h"
 #include "rddesc.h"
 #include "index.h"
+#include "ww3dformat.h"
+
+// Opaque handles for backend-agnostic texture/surface access.
+// The concrete backend (DX9, Vulkan, etc.) maps these to real API handles.
+using BackendTextureHandle = void*;
+using BackendSurfaceHandle = void*;
 
 class WW3DBackend
 {
@@ -53,6 +59,11 @@ public:
     virtual void Set_Texture_Bitdepth(int depth);
     virtual int Get_Texture_Bitdepth(void);
 
+    // Texture and surface factory -- backend-agnostic handles.
+    // Concrete backends override these to create their API-specific objects.
+    virtual BackendTextureHandle Create_Texture(int width, int height, WW3DFormat format, int mip_level_count, int pool, bool render_target) = 0;
+    virtual BackendSurfaceHandle Create_Surface(int width, int height, WW3DFormat format, int pool) = 0;
+    virtual void Set_Texture(BackendTextureHandle handle, unsigned int stage) = 0;
 };
 
 #endif // WW3DBACKEND_H

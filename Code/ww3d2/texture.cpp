@@ -127,9 +127,9 @@ static int Calculate_Texture_Memory_Usage(const TextureClass* texture,int red_fa
 	// Set performance statistics
 
 	int size=0;
-	IDirect3DTexture9* d3d_texture=const_cast<TextureClass*>(texture)->Peek_DX8_Texture();
+	BackendTextureHandle d3d_tex=const_cast<TextureClass*>(texture)->Peek_Backend_Texture();
 	if (!d3d_texture) return 0;
-	for (unsigned i=red_factor;i<d3d_texture->GetLevelCount();++i) {
+	for (unsigned i=red_factor;i<static_cast<IDirect3DTexture9*>(tex)->GetLevelCount();++i) {
 		D3DSURFACE_DESC desc;
 		DX8_ErrorCode(d3d_texture->GetLevelDesc(i,&desc));
 		size+=desc.Width*desc.Height*Calculate_Format_Pixel_Size(desc.Format);
@@ -143,7 +143,7 @@ static int Calculate_Texture_Memory_Usage(const TextureClass* texture,int red_fa
 
 TextureClass::TextureClass(unsigned width, unsigned height, WW3DFormat format, MipCountType mip_level_count, PoolType pool,bool rendertarget)
 	:
-	D3DTexture(NULL),
+	m_BackendTexture(NULL),
 	texture_id(unused_texture_id++),
 	Initialized(true),
 	TextureMinFilter(FILTER_TYPE_DEFAULT),
@@ -193,7 +193,7 @@ TextureClass::TextureClass(unsigned width, unsigned height, WW3DFormat format, M
 	default:
 		WWASSERT(0);
 	}
-	D3DTexture = DX8Wrapper::_Create_DX8_Texture(width, height, format, mip_level_count,d3dpool,rendertarget);
+	m_BackendTexture = static_cast<IDirect3DTexture9*>(DX8Wrapper::_Create_DX8_Texture(width, height, format, mip_level_count,d3dpool,rendertarget));
 	if (pool==POOL_DEFAULT)
 	{
 		Dirty=true;
@@ -214,7 +214,7 @@ TextureClass::TextureClass(
 	WW3DFormat texture_format,
 	bool allow_compression)
 	:
-	D3DTexture(NULL),
+	m_BackendTexture(NULL),
 	texture_id(unused_texture_id++),
 	Initialized(false),
 	TextureMinFilter(FILTER_TYPE_DEFAULT),
@@ -286,7 +286,7 @@ TextureClass::TextureClass(
 	WWASSERT(name[0]!='\0');
 	if (!WW3D::Is_Texturing_Enabled()) {
 		Initialized=true;
-		D3DTexture=0;
+		m_BackendTexture=0;
 	}
 
 	// Find original size from the thumbnail (but don't create thumbnail texture yet!)
@@ -317,7 +317,7 @@ TextureClass::TextureClass(
 
 TextureClass::TextureClass(SurfaceClass *surface, MipCountType mip_level_count)
 	:
-	D3DTexture(NULL),
+	m_BackendTexture(NULL),
 	texture_id(unused_texture_id++),
 	Initialized(true),
 	TextureMinFilter(FILTER_TYPE_DEFAULT),
@@ -357,23 +357,23 @@ TextureClass::TextureClass(SurfaceClass *surface, MipCountType mip_level_count)
 		break;
 	}
 
-	D3DTexture = DX8Wrapper::_Create_DX8_Texture(surface->Peek_D3D_Surface(), mip_level_count);
+	m_BackendTexture = static_cast<IDirect3DTexture9*>(DX8Wrapper::_Create_DX8_Texture(surface->Peek_Backend_Surface()), mip_level_count);
 	LastAccessed=WW3D::Get_Sync_Time();
 }
 
 // ----------------------------------------------------------------------------
 
-TextureClass::TextureClass(IDirect3DTexture9* d3d_texture)
+TextureClass::TextureClass(BackendTextureHandle tex)
 	:
-	D3DTexture(d3d_texture),
+	m_BackendTexture(static_cast<IDirect3DTexture9*>(tex)),
 	texture_id(unused_texture_id++),
 	Initialized(true),
 	TextureMinFilter(FILTER_TYPE_DEFAULT),
 	TextureMagFilter(FILTER_TYPE_DEFAULT),
-	MipMapFilter((d3d_texture->GetLevelCount()!=1) ? FILTER_TYPE_DEFAULT : FILTER_TYPE_NONE),
+	MipMapFilter((static_cast<IDirect3DTexture9*>(tex)->GetLevelCount()!=1) ? FILTER_TYPE_DEFAULT : FILTER_TYPE_NONE),
 	UAddressMode(TEXTURE_ADDRESS_REPEAT),
 	VAddressMode(TEXTURE_ADDRESS_REPEAT),
-	MipLevelCount((MipCountType)d3d_texture->GetLevelCount()),
+	MipLevelCount((MipCountType)static_cast<IDirect3DTexture9*>(tex)->GetLevelCount()),
 	Pool(POOL_MANAGED),
 	Dirty(false),
 	IsLightmap(false),
@@ -388,9 +388,9 @@ TextureClass::TextureClass(IDirect3DTexture9* d3d_texture)
 	ExtendedInactivationTime(0),
 	LastInactivationSyncTime(0)
 {
-	D3DTexture->AddRef();
+	static_cast<IDirect3DTexture9*>(m_BackendTexture)->AddRef();
 	IDirect3DSurface9* surface;
-	DX8_ErrorCode(D3DTexture->GetSurfaceLevel(0,&surface));
+	DX8_ErrorCode(static_cast<IDirect3DTexture9*>(m_BackendTexture)->GetSurfaceLevel(0,&surface));
 	D3DSURFACE_DESC d3d_desc;
 	::ZeroMemory(&d3d_desc, sizeof(D3DSURFACE_DESC));
 	DX8_ErrorCode(surface->GetDesc(&d3d_desc));
@@ -421,9 +421,9 @@ TextureClass::~TextureClass(void)
 	delete ThumbnailLoadTask;
 	ThumbnailLoadTask=NULL;
 
-	if (D3DTexture) {
-		D3DTexture->Release();
-		D3DTexture = NULL;
+	if (m_BackendTexture) {
+		static_cast<IDirect3DTexture9*>(m_BackendTexture)->Release();
+		m_BackendTexture = NULL;
 	}
 	DX8TextureManagerClass::Remove(this);
 }
@@ -477,7 +477,7 @@ void TextureClass::Init()
 	}
 
 
-	if (!D3DTexture) {
+	if (!m_BackendTexture) {
 		if (!WW3D::Get_Thumbnail_Enabled() || MipLevelCount==MIP_LEVELS_1) {
 //		if (MipLevelCount==MIP_LEVELS_1) {
 			TextureLoader::Request_Foreground_Loading(this);
@@ -510,9 +510,9 @@ void TextureClass::Invalidate()
 		return;
 	}
 
-	if (D3DTexture) {
-		D3DTexture->Release();
-		D3DTexture = NULL;
+	if (m_BackendTexture) {
+		static_cast<IDirect3DTexture9*>(m_BackendTexture)->Release();
+		m_BackendTexture = NULL;
 	}
 
 	Initialized=false;
@@ -524,8 +524,8 @@ void TextureClass::Invalidate()
 
 void TextureClass::Load_Locked_Surface()
 {
-	if (D3DTexture) D3DTexture->Release();
-	D3DTexture=0;
+	if (m_BackendTexture) static_cast<IDirect3DTexture9*>(m_BackendTexture)->Release();
+	m_BackendTexture=0;
 	TextureLoader::Request_Thumbnail(this);
 	Initialized=false;
 }
@@ -537,7 +537,7 @@ bool TextureClass::Is_Missing_Texture()
 	bool flag = false;
 	IDirect3DTexture9 *missing_texture = MissingTexture::_Get_Missing_Texture();
 
-	if(D3DTexture == missing_texture)
+	if(m_BackendTexture == missing_texture)
 		flag = true;
 
 	if(missing_texture) {
@@ -558,25 +558,25 @@ void TextureClass::Set_Texture_Name(const char * name)
 
 unsigned int TextureClass::Get_Mip_Level_Count(void)
 {
-	if (!D3DTexture) {
+	if (!m_BackendTexture) {
 		WWASSERT_PRINT(0, "Get_Mip_Level_Count: D3DTexture is NULL!\n");
 		return 0;
 	}
 
-	return D3DTexture->GetLevelCount();
+	return static_cast<IDirect3DTexture9*>(m_BackendTexture)->GetLevelCount();
 }
 
 // ----------------------------------------------------------------------------
 
 SurfaceClass *TextureClass::Get_Surface_Level(unsigned int level)
 {
-	if (!D3DTexture) {
+	if (!m_BackendTexture) {
 		WWASSERT_PRINT(0, "Get_Surface_Level: D3DTexture is NULL!\n");
 		return 0;
 	}
 
 	IDirect3DSurface9 *d3d_surface = NULL;
-	DX8_ErrorCode(D3DTexture->GetSurfaceLevel(level, &d3d_surface));
+	DX8_ErrorCode(static_cast<IDirect3DTexture9*>(m_BackendTexture)->GetSurfaceLevel(level, &d3d_surface));
 	SurfaceClass *surface = new SurfaceClass(d3d_surface);
 	d3d_surface->Release();
 	return surface;
@@ -586,13 +586,13 @@ SurfaceClass *TextureClass::Get_Surface_Level(unsigned int level)
 
 IDirect3DSurface9 *TextureClass::Get_D3D_Surface_Level(unsigned int level)
 {
-	if (!D3DTexture) {
+	if (!m_BackendTexture) {
 		WWASSERT_PRINT(0, "Get_D3D_Surface_Level: D3DTexture is NULL!\n");
 		return 0;
 	}
 
 	IDirect3DSurface9 *d3d_surface = NULL;
-	DX8_ErrorCode(D3DTexture->GetSurfaceLevel(level, &d3d_surface));
+	DX8_ErrorCode(static_cast<IDirect3DTexture9*>(m_BackendTexture)->GetSurfaceLevel(level, &d3d_surface));
 	return d3d_surface;
 }
 
@@ -600,24 +600,24 @@ IDirect3DSurface9 *TextureClass::Get_D3D_Surface_Level(unsigned int level)
 
 unsigned int TextureClass::Get_Priority(void)
 {
-	if (!D3DTexture) {
+	if (!m_BackendTexture) {
 		WWASSERT_PRINT(0, "Get_Priority: D3DTexture is NULL!\n");
 		return 0;
 	}
 
-	return D3DTexture->GetPriority();
+	return static_cast<IDirect3DTexture9*>(m_BackendTexture)->GetPriority();
 }
 
 // ----------------------------------------------------------------------------
 
 unsigned int TextureClass::Set_Priority(unsigned int priority)
 {
-	if (!D3DTexture) {
+	if (!m_BackendTexture) {
 		WWASSERT_PRINT(0, "Set_Priority: D3DTexture is NULL!\n");
 		return 0;
 	}
 
-	return D3DTexture->SetPriority(priority);
+	return static_cast<IDirect3DTexture9*>(m_BackendTexture)->SetPriority(priority);
 }
 
 // ----------------------------------------------------------------------------
@@ -655,7 +655,7 @@ void TextureClass::Apply(unsigned int stage)
 
 	// Set texture itself
 	if (WW3D::Is_Texturing_Enabled()) {
-		DX8Wrapper::Set_DX8_Texture(stage, D3DTexture);
+		DX8Wrapper::Set_DX8_Texture(stage, static_cast<IDirect3DBaseTexture9*>(m_BackendTexture));
 	} else {
 		DX8Wrapper::Set_DX8_Texture(stage, NULL);
 	}
@@ -699,16 +699,16 @@ void TextureClass::Apply_Null(unsigned int stage)
 
 // ----------------------------------------------------------------------------
 
-void TextureClass::Apply_New_Surface(IDirect3DTexture9* d3d_texture,bool initialized)
+void TextureClass::Apply_New_Surface(BackendTextureHandle tex,bool initialized)
 {
-	if (D3DTexture) D3DTexture->Release();
-	D3DTexture=d3d_texture;//TextureLoadTask->Peek_D3D_Texture();
-	D3DTexture->AddRef();
+	if (m_BackendTexture) static_cast<IDirect3DTexture9*>(m_BackendTexture)->Release();
+	m_BackendTexture=tex;
+	static_cast<IDirect3DTexture9*>(m_BackendTexture)->AddRef();
 	if (initialized) Initialized=true;
 
-	WWASSERT(D3DTexture);
+	WWASSERT(m_BackendTexture);
 	IDirect3DSurface9* surface;
-	DX8_ErrorCode(D3DTexture->GetSurfaceLevel(0,&surface));
+	DX8_ErrorCode(static_cast<IDirect3DTexture9*>(m_BackendTexture)->GetSurfaceLevel(0,&surface));
 	D3DSURFACE_DESC d3d_desc;
 	::ZeroMemory(&d3d_desc, sizeof(D3DSURFACE_DESC));
 	DX8_ErrorCode(surface->GetDesc(&d3d_desc));
