@@ -222,18 +222,18 @@ bool DDSFileClass::Load()
 //
 // ----------------------------------------------------------------------------
 
-void DDSFileClass::Copy_Level_To_Surface(unsigned level,IDirect3DSurface9* d3d_surface)
+void DDSFileClass::Copy_Level_To_Surface(unsigned level,BackendSurfaceHandle surface)
 {
-	WWASSERT(d3d_surface);
+#if ENABLE_DX9_BACKEND
+	WWASSERT(surface);
 	// Verify that the destination surface size matches the source surface size
 	D3DSURFACE_DESC surface_desc;
-	DX8_ErrorCode(d3d_surface->GetDesc(&surface_desc));
+	DX8_ErrorCode(static_cast<IDirect3DSurface9*>(surface)->GetDesc(&surface_desc));
 
 	// First lock the surface
 	D3DLOCKED_RECT locked_rect;
-	DX8_ErrorCode(d3d_surface->LockRect(&locked_rect,NULL,0));
+	DX8_ErrorCode(static_cast<IDirect3DSurface9*>(surface)->LockRect(&locked_rect,NULL,0));
 
-#if ENABLE_DX9_BACKEND
 	Copy_Level_To_Surface(
 		level,
 		D3DFormat_To_WW3DFormat(surface_desc.Format),
@@ -241,18 +241,12 @@ void DDSFileClass::Copy_Level_To_Surface(unsigned level,IDirect3DSurface9* d3d_s
 		surface_desc.Height,
 		reinterpret_cast<unsigned char*>(locked_rect.pBits),
 		locked_rect.Pitch);
-#else
-	Copy_Level_To_Surface(
-		level,
-		WW3D_FORMAT_UNKNOWN,
-		surface_desc.Width,
-		surface_desc.Height,
-		nullptr,
-		0);
-#endif
 
 	// Finally, unlock the surface
-	DX8_ErrorCode(d3d_surface->UnlockRect());
+	DX8_ErrorCode(static_cast<IDirect3DSurface9*>(surface)->UnlockRect());
+#else
+	WWASSERT(false); // DDS->surface copy requires DX9 backend
+#endif
 }
 
 // ----------------------------------------------------------------------------
