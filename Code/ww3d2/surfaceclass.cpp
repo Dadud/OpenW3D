@@ -265,7 +265,11 @@ void SurfaceClass::Get_Description(SurfaceDescription &surface_desc)
 	D3DSURFACE_DESC d3d_desc;
 	::ZeroMemory(&d3d_desc, sizeof(D3DSURFACE_DESC));
 	DX8_ErrorCode(static_cast<IDirect3DSurface9*>(m_BackendSurface)->GetDesc(&d3d_desc));
+#if ENABLE_DX9_BACKEND
 	surface_desc.Format = D3DFormat_To_WW3DFormat(d3d_desc.Format);
+#else
+	surface_desc.Format = WW3D_FORMAT_UNKNOWN;
+#endif
 	surface_desc.Height = d3d_desc.Height;
 	surface_desc.Width = d3d_desc.Width;
 }

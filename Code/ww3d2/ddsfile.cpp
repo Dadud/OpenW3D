@@ -67,6 +67,7 @@ DDSFileClass::DDSFileClass(const char* name,unsigned reduction_factor)
 		return;
 	}
 
+#if ENABLE_DX9_BACKEND
 	Format=D3DFormat_To_WW3DFormat((D3DFORMAT)SurfaceDesc.PixelFormat.FourCC);
 	WWASSERT(
 		Format==WW3D_FORMAT_DXT1 ||
@@ -74,6 +75,9 @@ DDSFileClass::DDSFileClass(const char* name,unsigned reduction_factor)
 		Format==WW3D_FORMAT_DXT3 ||
 		Format==WW3D_FORMAT_DXT4 ||
 		Format==WW3D_FORMAT_DXT5);
+#else
+	Format=WW3D_FORMAT_UNKNOWN;
+#endif
 
 	MipLevels=SurfaceDesc.MipMapCount;
 	if (MipLevels==0) MipLevels=1;
@@ -229,6 +233,7 @@ void DDSFileClass::Copy_Level_To_Surface(unsigned level,IDirect3DSurface9* d3d_s
 	D3DLOCKED_RECT locked_rect;
 	DX8_ErrorCode(d3d_surface->LockRect(&locked_rect,NULL,0));
 
+#if ENABLE_DX9_BACKEND
 	Copy_Level_To_Surface(
 		level,
 		D3DFormat_To_WW3DFormat(surface_desc.Format),
@@ -236,6 +241,15 @@ void DDSFileClass::Copy_Level_To_Surface(unsigned level,IDirect3DSurface9* d3d_s
 		surface_desc.Height,
 		reinterpret_cast<unsigned char*>(locked_rect.pBits),
 		locked_rect.Pitch);
+#else
+	Copy_Level_To_Surface(
+		level,
+		WW3D_FORMAT_UNKNOWN,
+		surface_desc.Width,
+		surface_desc.Height,
+		nullptr,
+		0);
+#endif
 
 	// Finally, unlock the surface
 	DX8_ErrorCode(d3d_surface->UnlockRect());

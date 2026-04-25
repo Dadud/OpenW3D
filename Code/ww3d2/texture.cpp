@@ -396,6 +396,7 @@ TextureClass::TextureClass(BackendTextureHandle tex)
 	DX8_ErrorCode(surface->GetDesc(&d3d_desc));
 	Width=d3d_desc.Width;
 	Height=d3d_desc.Height;
+#if ENABLE_DX9_BACKEND
 	TextureFormat=D3DFormat_To_WW3DFormat(d3d_desc.Format);
 	switch (TextureFormat) {
 	case WW3D_FORMAT_DXT1:
@@ -408,6 +409,9 @@ TextureClass::TextureClass(BackendTextureHandle tex)
 	default:
 		break;
 	}
+#else
+	TextureFormat=WW3D_FORMAT_UNKNOWN;
+#endif
 
 	LastAccessed=WW3D::Get_Sync_Time();
 }
@@ -712,11 +716,17 @@ void TextureClass::Apply_New_Surface(BackendTextureHandle tex,bool initialized)
 	D3DSURFACE_DESC d3d_desc;
 	::ZeroMemory(&d3d_desc, sizeof(D3DSURFACE_DESC));
 	DX8_ErrorCode(surface->GetDesc(&d3d_desc));
+#if ENABLE_DX9_BACKEND
 	if (initialized) {
 		TextureFormat=D3DFormat_To_WW3DFormat(d3d_desc.Format);
 		Width=d3d_desc.Width;
 		Height=d3d_desc.Height;
 	}
+#else
+	TextureFormat=WW3D_FORMAT_UNKNOWN;
+	Width=0;
+	Height=0;
+#endif
 	surface->Release();
 }
 

@@ -1,3 +1,4 @@
+#if ENABLE_DX9_BACKEND
 /*
 **	Command & Conquer Renegade(tm)
 **	Copyright 2025 Electronic Arts Inc.
@@ -155,3 +156,5 @@ void Init_D3D_To_WW3_Conversion()
 	D3DFormatToWW3DFormatConversionArray[D3DFMT_X8L8V8U8]=WW3D_FORMAT_X8L8V8U8;	// Bumpmap
 
 };
+
+#endif // ENABLE_DX9_BACKEND
