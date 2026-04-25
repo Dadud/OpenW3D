@@ -61,6 +61,7 @@ set(WW3D2_SRC
     meshmdlio.cpp
     metalmap.cpp
     missingtexture.cpp
+    nullbackend.cpp
     motchan.cpp
     nullrobj.cpp
     part_buf.cpp
@@ -172,6 +173,7 @@ set(WW3D2_SRC
     meshmdl.h
     metalmap.h
     missingtexture.h
+    nullbackend.h
     motchan.h
     nullrobj.h
     part_buf.h

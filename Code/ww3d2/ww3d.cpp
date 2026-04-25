@@ -172,9 +172,10 @@ float														WW3D::PixelCenterY = 0.0f;
 bool														WW3D::IsInitted = false;
 
 #if ENABLE_DX9_BACKEND
-WW3DBackend									*WW3D::ww3d_backend = nullptr;
 MeshRenderer									*WW3D::meshRenderer = nullptr;
 #endif
+
+WW3DBackend									*WW3D::ww3d_backend = nullptr;
 
 bool														WW3D::IsRendering = false;
 bool														WW3D::IsCapturing = false;
@@ -280,7 +281,8 @@ WW3DErrorType WW3D::Init(void *hwnd, char * /*defaultpal*/, bool lite)
 		return(WW3D_ERROR_DIRECTX8_INITIALIZATION_FAILED);
 	}
 #else
-	if (!DX8Wrapper::Init(_Hwnd, lite)) {
+	ww3d_backend = WW3DBackend::Create_Null_Backend();
+	if (!ww3d_backend->Init(_Hwnd, lite)) {
 		return(WW3D_ERROR_DIRECTX8_INITIALIZATION_FAILED);
 	}
 #endif

@@ -69,6 +69,9 @@ public:
     // Missing texture helpers -- backend-specific fallback for error handling.
     virtual BackendTextureHandle Get_Missing_Texture() = 0;
     virtual BackendSurfaceHandle Create_Missing_Surface() = 0;
+
+    // Factory method to create a NullBackend for non-GPU platforms
+    static WW3DBackend* Create_Null_Backend();
 };
 
 #endif // WW3DBACKEND_H
