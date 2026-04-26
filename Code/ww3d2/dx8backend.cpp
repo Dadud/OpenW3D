@@ -33,7 +33,10 @@
 #include "backends/backend_surface_handle.h"
 
 DX8Backend::DX8Backend() :
-    m_hwnd(nullptr)
+    m_hwnd(nullptr),
+    m_swapchain(nullptr),
+    m_swapchain_width(0),
+    m_swapchain_height(0)
 {
 }
 
@@ -49,6 +52,10 @@ bool DX8Backend::Init(void * hwnd, bool lite)
 
 void DX8Backend::Shutdown()
 {
+    if (m_swapchain) {
+        static_cast<IDirect3DSwapChain9*>(m_swapchain)->Release();
+        m_swapchain = nullptr;
+    }
     DX8Wrapper::Shutdown();
 }
 
@@ -149,14 +156,27 @@ bool DX8Backend::Registry_Load_Render_Device(const char * sub_key, char *device,
 
 bool DX8Backend::Create_Swapchain(int width, int height)
 {
-    // Create an additional swap chain using the stored window handle.
-    // DX8 swapchain is created with current present params; width/height are hints
-    // that the DX8 present params would need updating to honor fully.
+    // Create or recreate an additional swap chain using the stored window handle.
+    // On subsequent calls with different dimensions, releases the old swapchain first.
     if (m_hwnd == nullptr) {
         return false;
     }
-    DX8Wrapper::Create_Additional_Swap_Chain(static_cast<HWND>(m_hwnd));
-    return true;
+
+    // Release existing swapchain if dimensions changed
+    if (m_swapchain != nullptr &&
+        (width != m_swapchain_width || height != m_swapchain_height)) {
+        static_cast<IDirect3DSwapChain9*>(m_swapchain)->Release();
+        m_swapchain = nullptr;
+    }
+
+    // Create new swapchain if not yet created or on first call
+    if (m_swapchain == nullptr) {
+        m_swapchain = DX8Wrapper::Create_Additional_Swap_Chain(static_cast<HWND>(m_hwnd));
+        m_swapchain_width = width;
+        m_swapchain_height = height;
+    }
+
+    return m_swapchain != nullptr;
 }
 
 void DX8Backend::Begin_Scene()

@@ -97,6 +97,9 @@ public:
 
 private:
     void* m_hwnd; // stored window handle for swapchain creation
+    void* m_swapchain; // IDirect3DSwapChain9*, stored as void* to avoid D3D header in header
+    int m_swapchain_width;
+    int m_swapchain_height;
 };
 
 #endif // DX8BACKEND_H
