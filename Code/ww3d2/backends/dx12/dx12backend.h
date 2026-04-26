@@ -1,5 +1,4 @@
 /*
-**	Command & Conquer Renegade(tm)
 **	Community contribution - Licensed under GPLv3
 **
 **	This program is free software: you can redistribute it and/or modify
@@ -16,20 +15,8 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
- ***********************************************************************************************
- *                                                                                             *
- *                 Project Name : ww3d                                                         *
- *                                                                                             *
- *                    File Name : dx12backend.h                                                  *
- *                                                                                             *
- *                   Programmer : Community contribution                                        *
- *                                                                                             *
- *---------------------------------------------------------------------------------------------*
- * DX12 backend implementation for ww3d2.                                                     *
- * Wraps DX12 API behind the WW3DBackend interface.                                           *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+// DX12 backend for ww3d2.
+// Wraps DX12 API behind the WW3DBackend interface.
 
 #ifndef DX12BACKEND_H
 #define DX12BACKEND_H
@@ -102,17 +89,17 @@ public:
 
 private:
     // DX12 objects stored as void* to keep d3d12.h out of the header
-    void* m_dxgi_factory;      // IDXGIFactory
-    void* m_adapter;           // IDXGIAdapter
-    void* m_device;           // ID3D12Device
-    void* m_command_queue;    // ID3D12CommandQueue
-    void* m_swap_chain;       // IDXGISwapChain
-    void* m_rtv_heap;         // ID3D12DescriptorHeap (RTV)
-    void* m_command_allocator; // ID3D12CommandAllocator
-    void* m_command_list;     // ID3D12GraphicsCommandList
-    void* m_fence;            // ID3D12Fence
+    void* m_dxgi_factory;
+    void* m_adapter;
+    void* m_device;
+    void* m_command_queue;
+    void* m_swap_chain;
+    void* m_rtv_heap;
+    void* m_command_allocator;
+    void* m_command_list;
+    void* m_fence;
 
-    void* m_hwnd;             // window handle
+    void* m_hwnd;
     int m_width;
     int m_height;
     int m_bit_depth;
@@ -122,7 +109,7 @@ private:
     int m_texture_bit_depth;
     int m_current_device_index;
     int m_render_device;
-    void* m_render_target;    // current render target surface
+    void* m_render_target;
 
     unsigned int m_rtv_descriptor_size;
     unsigned long long m_fence_value;

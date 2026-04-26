@@ -1,5 +1,4 @@
 /*
-**	Command & Conquer Renegade(tm)
 **	Community contribution - Licensed under GPLv3
 **
 **	This program is free software: you can redistribute it and/or modify
@@ -16,19 +15,7 @@
 **	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-/***********************************************************************************************
- ***              C O N F I D E N T I A L  ---  W E S T W O O D  S T U D I O S               ***
- ***********************************************************************************************
- *                                                                                             *
- *                 Project Name : ww3d                                                         *
- *                                                                                             *
- *                    File Name : dx12backend.cpp                                               *
- *                                                                                             *
- *                   Programmer : Community contribution                                        *
- *                                                                                             *
- *---------------------------------------------------------------------------------------------*
- * DX12 backend implementation.                                                                *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+// DX12 backend implementation.
 
 #include "dx12backend.h"
 #include "backends/backend_surface_handle.h"
