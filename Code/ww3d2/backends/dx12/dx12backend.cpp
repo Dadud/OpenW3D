@@ -110,6 +110,7 @@ DX12Backend::DX12Backend() :
     m_fog_enabled(false),
     m_vs_blob(nullptr),
     m_ps_blob(nullptr),
+    m_stored_shader(nullptr),
     m_vertex_buffer(nullptr),
     m_index_buffer(nullptr),
     m_vertex_buffer_stride(0),
@@ -165,6 +166,7 @@ void DX12Backend::Shutdown()
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_rtv_heap));
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_srv_heap));
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_dsv_heap));
+    SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_depthStencil));
     SafeRelease(reinterpret_cast<ID3D12PipelineState**>(&m_pipeline_state));
     SafeRelease(reinterpret_cast<ID3D12RootSignature**>(&m_root_signature));
     SafeRelease(reinterpret_cast<ID3DBlob**>(&m_vs_blob));
@@ -276,8 +278,16 @@ bool DX12Backend::Init(void * hwnd, bool /*lite*/)
         return false;
     }
 
+    // Create depth stencil (needs DSV heap from Create_Descriptor_Heaps)
+    // Note: dimensions come from Create_Swapchain below
+
     // Create swap chain
     if (!Create_Swapchain(m_width, m_height)) {
+        return false;
+    }
+
+    // Create depth stencil after swap chain so we have correct dimensions
+    if (!Create_DepthStencil()) {
         return false;
     }
 
@@ -1118,7 +1128,11 @@ void DX12Backend::Clear(bool clear_color, bool clear_z_stencil, const Vector3 &c
         cmd_list->ClearRenderTargetView(rtv, rgba, 0, nullptr);
     }
 
-    // Note: depth/stencil clear would need a DSV heap - deferred
+    // Clear depth/stencil if requested and DSV heap exists
+    if (clear_z_stencil && m_dsv_heap) {
+        D3D12_CPU_DESCRIPTOR_HANDLE dsv = static_cast<ID3D12DescriptorHeap*>(m_dsv_heap)->GetCPUDescriptorHandleForHeapStart();
+        cmd_list->ClearDepthStencilView(dsv, D3D12_CLEAR_FLAG_DEPTH | D3D12_CLEAR_FLAG_STENCIL, z, static_cast<UINT8>(stencil), 0, nullptr);
+    }
 }
 
 /************************************************************************************************
@@ -1850,6 +1864,191 @@ void DX12Backend::Apply_Matrices()
     m_dirty_matrix = false;
 }
 
+/************************************************************************************************
+ * DX12Backend::DX8_Set_Transform -- Set transform matrix by type                             *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_Transform(int type, const float* matrix4x4)
+{
+    switch (type) {
+        case 0:  // D3DTS_WORLD
+            Set_World_Matrix(matrix4x4);
+            break;
+        case 1:  // D3DTS_VIEW
+            Set_View_Matrix(matrix4x4);
+            break;
+        case 2:  // D3DTS_PROJECTION
+            Set_Projection_Matrix(matrix4x4);
+            break;
+        default:
+            break;
+    }
+    Apply_Matrices();
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Set_World_Identity -- Set world matrix to identity                        *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_World_Identity()
+{
+    const float identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+    Set_World_Matrix(identity);
+    Apply_Matrices();
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Set_View_Identity -- Set view matrix to identity                         *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_View_Identity()
+{
+    const float identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+    Set_View_Matrix(identity);
+    Apply_Matrices();
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Set_Vertex_Buffer -- Create and upload vertex buffer                       *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_Vertex_Buffer(unsigned int /*buffer_slot*/, void* vertex_data, unsigned int vertex_count, unsigned int stride)
+{
+    if (!vertex_data || vertex_count == 0 || stride == 0) return;
+    Set_Vertex_Buffer(vertex_data, stride, vertex_count);
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Set_Index_Buffer -- Create and upload index buffer                          *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_Index_Buffer(void* index_data, unsigned int index_count)
+{
+    if (!index_data || index_count == 0) return;
+    Set_Index_Buffer(index_data, index_count);
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Draw_Triangles -- Draw non-indexed triangles                               *
+ ************************************************************************************************/
+void DX12Backend::DX8_Draw_Triangles(unsigned int start_vertex, unsigned int vertex_count, unsigned int /*start_index*/)
+{
+    Draw_Primitive(vertex_count, start_vertex);
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Draw_Indexed -- Draw indexed primitives                                      *
+ ************************************************************************************************/
+void DX12Backend::DX8_Draw_Indexed(unsigned int index_count, unsigned int start_index, unsigned int base_vertex)
+{
+    Draw_Indexed(index_count, start_index, base_vertex);
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Set_Texture -- Bind texture to a stage                                      *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_Texture(unsigned int stage, void* texture_data)
+{
+    if (stage >= 8) return;
+    // If non-null, bind the texture; if null, unbind
+    Bind_Texture(stage, texture_data);
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Set_Material -- Apply material colors via render state                     *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_Material(const void* material)
+{
+    if (!material) return;
+    // D3DMATERIAL9 structure has: Diffuse, Ambient, Specular, Emissive, Power
+    // We'll extract diffuse and emissive colors
+    // For now, just use the stored shader
+    // Material application would go through Set_DX8_Render_State calls
+    (void)material;
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Set_Shader -- Store shader pointer for later use                            *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_Shader(void* shader)
+{
+    m_stored_shader = shader;
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Set_Viewport -- Set viewport (delegates to existing method)                *
+ ************************************************************************************************/
+void DX12Backend::DX8_Set_Viewport(const void* viewport)
+{
+    Set_Viewport(viewport);
+}
+
+/************************************************************************************************
+ * DX12Backend::DX8_Convert_Color -- Convert ARGB color to DX12 format                          *
+ ************************************************************************************************/
+unsigned int DX12Backend::DX8_Convert_Color(unsigned int argb, float opacity)
+{
+    // Extract components from ARGB
+    unsigned int a = (argb >> 24) & 0xFF;
+    unsigned int r = (argb >> 16) & 0xFF;
+    unsigned int g = (argb >> 8) & 0xFF;
+    unsigned int b = argb & 0xFF;
+    // Apply opacity
+    if (opacity < 1.0f) {
+        a = static_cast<unsigned int>(a * opacity);
+    }
+    // Return as ARGB
+    return (a << 24) | (r << 16) | (g << 8) | b;
+}
+
+/************************************************************************************************
+ * DX12Backend::Create_DepthStencil -- Create depth stencil buffer and DSV                        *
+ ************************************************************************************************/
+bool DX12Backend::Create_DepthStencil()
+{
+    if (!m_device) return false;
+
+    // Release existing depth stencil if present
+    SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_depthStencil));
+
+    // Depth stencil texture desc - match swap chain dimensions
+    D3D12_RESOURCE_DESC depth_desc = {};
+    depth_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    depth_desc.Width = m_width;
+    depth_desc.Height = m_height;
+    depth_desc.DepthOrArraySize = 1;
+    depth_desc.MipLevels = 1;
+    depth_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    depth_desc.SampleDesc.Count = 1;
+    depth_desc.SampleDesc.Quality = 0;
+    depth_desc.Flags = D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL;
+
+    D3D12_CLEAR_VALUE depth_clear_value = {};
+    depth_clear_value.Format = depth_desc.Format;
+    depth_clear_value.DepthStencil.Depth = 1.0f;
+    depth_clear_value.DepthStencil.Stencil = 0;
+
+    ID3D12Resource* depth_resource = nullptr;
+    HRESULT hr = static_cast<ID3D12Device*>(m_device)->CreateCommittedResource(
+        &D3D12_HEAP_PROPERTIES{D3D12_HEAP_TYPE_DEFAULT, D3D12_MEMORY_POOL_UNKNOWN, 0, 0},
+        D3D12_HEAP_FLAG_NONE,
+        &depth_desc,
+        D3D12_RESOURCE_STATE_DEPTH_WRITE,
+        &depth_clear_value,
+        IID_PPV_ARGS(&depth_resource));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateCommittedResource (depth) failed: %x\n", hr));
+        return false;
+    }
+    m_depthStencil = depth_resource;
+
+    // Create DSV descriptor in the DSV heap (first slot at offset 0)
+    D3D12_DEPTH_STENCIL_VIEW_DESC dsv_desc = {};
+    dsv_desc.Format = DXGI_FORMAT_D24_UNORM_S8_UINT;
+    dsv_desc.ViewDimension = D3D12_DSV_DIMENSION_TEXTURE2D;
+    dsv_desc.Texture2D.MipSlice = 0;
+
+    D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle = static_cast<ID3D12DescriptorHeap*>(m_dsv_heap)->GetCPUDescriptorHandleForHeapStart();
+    static_cast<ID3D12Device*>(m_device)->CreateDepthStencilView(m_depthStencil, &dsv_desc, dsv_handle);
+
+    return true;
+}
+
 #else // !_WIN32
 
 // DX12 is Windows-only - provide stubs for non-Windows builds
@@ -1946,7 +2145,8 @@ DX12Backend::DX12Backend() :
     m_vertex_buffer_stride(0),
     m_vertex_buffer_offset(0),
     m_vertex_count(0),
-    m_index_count(0)
+    m_index_count(0),
+    m_stored_shader(nullptr)
 {
     // Identity matrices
     const float identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
@@ -2033,5 +2233,19 @@ void DX12Backend::Set_Vertex_Buffer(void*, unsigned int, unsigned int) {}
 void DX12Backend::Set_Index_Buffer(void*, unsigned int) {}
 void DX12Backend::Draw_Primitive(unsigned int, unsigned int) {}
 void DX12Backend::Draw_Indexed(unsigned int, unsigned int, unsigned int) {}
+
+// DX8-style interface stubs for non-Windows builds
+void DX12Backend::DX8_Set_Transform(int, const float*) {}
+void DX12Backend::DX8_Set_World_Identity() {}
+void DX12Backend::DX8_Set_View_Identity() {}
+void DX12Backend::DX8_Set_Vertex_Buffer(unsigned int, void*, unsigned int, unsigned int) {}
+void DX12Backend::DX8_Set_Index_Buffer(void*, unsigned int) {}
+void DX12Backend::DX8_Draw_Triangles(unsigned int, unsigned int, unsigned int) {}
+void DX12Backend::DX8_Draw_Indexed(unsigned int, unsigned int, unsigned int) {}
+void DX12Backend::DX8_Set_Texture(unsigned int, void*) {}
+void DX12Backend::DX8_Set_Material(const void*) {}
+void DX12Backend::DX8_Set_Shader(void*) {}
+void DX12Backend::DX8_Set_Viewport(const void*) {}
+unsigned int DX12Backend::DX8_Convert_Color(unsigned int argb, float opacity) { (void)opacity; return argb; }
 
 #endif // !_WIN32

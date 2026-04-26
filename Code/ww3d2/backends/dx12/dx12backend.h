@@ -153,6 +153,7 @@ private:
     void Apply_Matrices();  // Update root signature/descriptor table with matrices
 
     void* m_pipeline_state;
+    void* m_stored_shader;    // DX8 shader stored via DX8_Set_Shader
     void* m_staging_texture;  // ID3D12Resource for readback
     int m_staging_width;
     int m_staging_height;
@@ -194,6 +195,20 @@ private:
     void Wait_for_GPU();
     void MoveToNextFrame();
     void Bind_Texture(unsigned int slot, void* texture);
+
+    // DX8-style interface - called from game code via DX8Wrapper
+    void DX8_Set_Transform(int type, const float* matrix4x4);
+    void DX8_Set_World_Identity();
+    void DX8_Set_View_Identity();
+    void DX8_Set_Vertex_Buffer(unsigned int buffer_slot, void* vertex_data, unsigned int vertex_count, unsigned int stride);
+    void DX8_Set_Index_Buffer(void* index_data, unsigned int index_count);
+    void DX8_Draw_Triangles(unsigned int start_vertex, unsigned int vertex_count, unsigned int start_index = 0);
+    void DX8_Draw_Indexed(unsigned int index_count, unsigned int start_index, unsigned int base_vertex);
+    void DX8_Set_Texture(unsigned int stage, void* texture_data);
+    void DX8_Set_Material(const void* material);
+    void DX8_Set_Shader(void* shader);
+    void DX8_Set_Viewport(const void* viewport);
+    unsigned int DX8_Convert_Color(unsigned int argb, float opacity);
 };
 
 #endif // DX12BACKEND_H
