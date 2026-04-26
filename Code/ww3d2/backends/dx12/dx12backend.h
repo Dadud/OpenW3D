@@ -122,6 +122,16 @@ private:
     unsigned long long m_fence_value;
     void* m_fence_event;
 
+    // Vertex and index buffers
+    void* m_vertex_buffer;
+    void* m_index_buffer;
+    unsigned int m_vertex_buffer_stride;
+    unsigned int m_vertex_buffer_offset;
+    unsigned int m_vertex_count;
+    unsigned int m_index_count;
+    void* m_vertex_buffer_view;  // D3D12_VERTEX_BUFFER_VIEW*
+    void* m_index_buffer_view;   // D3D12_INDEX_BUFFER_VIEW*
+
     // DX8 render state storage
     unsigned int m_dx8_fill_mode;    // D3DFILL_*
     unsigned int m_dx8_cull_mode;    // D3DCULL_*
@@ -130,12 +140,43 @@ private:
     bool m_state_dirty;              // if true, PSO needs rebuilding
     bool Rebuild_PSO_From_State();   // rebuild PSO with current state
 
+    // Matrix transforms
+    float m_world_matrix[16];       // World transform
+    float m_view_matrix[16];        // View transform
+    float m_projection_matrix[16];  // Projection transform
+    bool m_dirty_matrix;            // if true, root signature needs update
+    void* m_root_signature;         // Root signature with matrix constants
+
+    void Set_World_Matrix(const float* matrix4x4);
+    void Set_View_Matrix(const float* matrix4x4);
+    void Set_Projection_Matrix(const float* matrix4x4);
+    void Apply_Matrices();  // Update root signature/descriptor table with matrices
+
     void* m_pipeline_state;
     void* m_staging_texture;  // ID3D12Resource for readback
     int m_staging_width;
     int m_staging_height;
     bool Create_Staging_Texture(int width, int height);
+
+    // Texture management
+    struct TextureSlot {
+        void* resource;        // ID3D12Resource*
+        unsigned int width;
+        unsigned int height;
+        unsigned int stride;    // bytes per row
+    };
+    TextureSlot m_textures[8];
+    bool Create_Texture_From_Data(void* data, unsigned int width, unsigned int height, unsigned int stride, unsigned int slot);
     bool Copy_To_Staging(int width, int height);
+
+    // Shader blobs and lighting state
+    bool m_lighting_enabled;
+    bool m_fog_enabled;
+    void* m_vs_blob;   // ID3DBlob for vertex shader
+    void* m_ps_blob;   // ID3DBlob for pixel shader
+    bool Create_Default_Shaders();
+    void Set_Lighting(bool enable);
+    void Set_Fog(bool enable);
 
     bool Create_DX12_Device(void* adapter);
     bool Create_Default_PSO();
@@ -144,6 +185,12 @@ private:
     bool Create_Descriptor_Heaps();
     bool Create_Default_Render_Target();
     bool Create_DepthStencil();
+    bool Create_Vertex_Buffer(unsigned int size_bytes);
+    bool Create_Index_Buffer(unsigned int size_bytes);
+    void Set_Vertex_Buffer(void* data, unsigned int stride, unsigned int vertex_count);
+    void Set_Index_Buffer(void* data, unsigned int index_count);
+    void Draw_Primitive(unsigned int vertex_count, unsigned int start_vertex);
+    void Draw_Indexed(unsigned int index_count, unsigned int start_index, unsigned int base_vertex);
     void Wait_for_GPU();
     void MoveToNextFrame();
     void Bind_Texture(unsigned int slot, void* texture);

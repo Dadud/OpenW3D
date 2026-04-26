@@ -103,10 +103,33 @@ DX12Backend::DX12Backend() :
     m_dx8_cull_mode(D3DCULL_NONE),
     m_dx8_zenable(D3DZB_TRUE),
     m_dx8_fill_solid(1),
-    m_state_dirty(false)
+    m_state_dirty(false),
+    m_root_signature(nullptr),
+    m_dirty_matrix(false),
+    m_lighting_enabled(true),
+    m_fog_enabled(false),
+    m_vs_blob(nullptr),
+    m_ps_blob(nullptr),
+    m_vertex_buffer(nullptr),
+    m_index_buffer(nullptr),
+    m_vertex_buffer_stride(0),
+    m_vertex_buffer_offset(0),
+    m_vertex_count(0),
+    m_index_count(0),
+    m_vertex_buffer_view({}),
+    m_index_buffer_view({})
 {
+    // Identity matrices
+    const float identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+    memcpy(m_world_matrix, identity, sizeof(m_world_matrix));
+    memcpy(m_view_matrix, identity, sizeof(m_view_matrix));
+    memcpy(m_projection_matrix, identity, sizeof(m_projection_matrix));
     for (unsigned int i = 0; i < 8; i++) {
         m_bound_textures[i] = nullptr;
+        m_textures[i].resource = nullptr;
+        m_textures[i].width = 0;
+        m_textures[i].height = 0;
+        m_textures[i].stride = 0;
     }
 }
 
@@ -123,6 +146,17 @@ DX12Backend::~DX12Backend()
  ************************************************************************************************/
 void DX12Backend::Shutdown()
 {
+    // Release all texture resources
+    for (unsigned int i = 0; i < 8; i++) {
+        if (m_textures[i].resource) {
+            SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_textures[i].resource));
+            m_textures[i].resource = nullptr;
+            m_textures[i].width = 0;
+            m_textures[i].height = 0;
+            m_textures[i].stride = 0;
+        }
+    }
+
     if (m_device) {
         Wait_for_GPU();
     }
@@ -132,6 +166,11 @@ void DX12Backend::Shutdown()
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_srv_heap));
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_dsv_heap));
     SafeRelease(reinterpret_cast<ID3D12PipelineState**>(&m_pipeline_state));
+    SafeRelease(reinterpret_cast<ID3D12RootSignature**>(&m_root_signature));
+    SafeRelease(reinterpret_cast<ID3DBlob**>(&m_vs_blob));
+    SafeRelease(reinterpret_cast<ID3DBlob**>(&m_ps_blob));
+    SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_vertex_buffer));
+    SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_index_buffer));
     SafeRelease(reinterpret_cast<ID3D12CommandList**>(&m_command_list));
     SafeRelease(reinterpret_cast<ID3D12CommandAllocator**>(&m_command_allocator));
     SafeRelease(reinterpret_cast<ID3D12Fence**>(&m_fence));
@@ -455,15 +494,27 @@ bool DX12Backend::Rebuild_PSO_From_State()
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = {};
 
     // Root signature
-    pso_desc.pRootSignature = nullptr;
+    pso_desc.pRootSignature = static_cast<ID3D12RootSignature*>(m_root_signature);
 
-    // Vertex shader - passthrough
-    pso_desc.VS.pShaderBytecode = nullptr;
-    pso_desc.VS.BytecodeLength = 0;
+    // Vertex shader - from blob if available
+    if (m_vs_blob) {
+        ID3DBlob* vs = static_cast<ID3DBlob*>(m_vs_blob);
+        pso_desc.VS.pShaderBytecode = vs->GetBufferPointer();
+        pso_desc.VS.BytecodeLength = vs->GetBufferSize();
+    } else {
+        pso_desc.VS.pShaderBytecode = nullptr;
+        pso_desc.VS.BytecodeLength = 0;
+    }
 
-    // Pixel shader - null
-    pso_desc.PS.pShaderBytecode = nullptr;
-    pso_desc.PS.BytecodeLength = 0;
+    // Pixel shader - from blob if available
+    if (m_ps_blob) {
+        ID3DBlob* ps = static_cast<ID3DBlob*>(m_ps_blob);
+        pso_desc.PS.pShaderBytecode = ps->GetBufferPointer();
+        pso_desc.PS.BytecodeLength = ps->GetBufferSize();
+    } else {
+        pso_desc.PS.pShaderBytecode = nullptr;
+        pso_desc.PS.BytecodeLength = 0;
+    }
 
     // Rasterizer state from DX8 render state
     switch (m_dx8_fill_mode) {
@@ -564,10 +615,87 @@ bool DX12Backend::Rebuild_PSO_From_State()
 }
 
 /************************************************************************************************
+ * DX12Backend::Create_Default_Shaders -- Compile minimal VS and PS shaders                    *
+ ************************************************************************************************/
+bool DX12Backend::Create_Default_Shaders()
+{
+#if defined(_WIN32) && defined(D3DCompile)
+    // Only available on Windows with D3DCompiler
+    ID3DBlob* vs_blob = nullptr;
+    ID3DBlob* ps_blob = nullptr;
+    ID3DBlob* error_blob = nullptr;
+
+    // Minimal vertex shader: outputs position in clip space, passes through color
+    const char* vs_hlsl = R"(
+        struct VS_INPUT {
+            float3 position : POSITION;
+            float4 color : COLOR;
+        };
+        struct VS_OUTPUT {
+            float4 position : SV_POSITION;
+            float4 color : COLOR;
+        };
+        VS_OUTPUT main(VS_INPUT input) {
+            VS_OUTPUT output;
+            output.position = float4(input.position, 1.0f);
+            output.color = input.color;
+            return output;
+        }
+    )";
+
+    HRESULT hr = D3DCompile(vs_hlsl, strlen(vs_hlsl), "VS", nullptr,
+        D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", "vs_4_0",
+        D3D10_SHADER_ENABLE_STRICTNESS | D3D10_SHADER_PACK_MATRIX_ROW_MAJOR, 0,
+        &vs_blob, &error_blob);
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: VS compilation failed: %x\n", hr));
+        if (error_blob) error_blob->Release();
+        return false;
+    }
+    SafeRelease(&error_blob);
+
+    // Minimal pixel shader: outputs flat color
+    const char* ps_hlsl = R"(
+        struct PS_INPUT {
+            float4 position : SV_POSITION;
+            float4 color : COLOR;
+        };
+        float4 main(PS_INPUT input) : SV_TARGET {
+            return input.color;
+        }
+    )";
+
+    hr = D3DCompile(ps_hlsl, strlen(ps_hlsl), "PS", nullptr,
+        D3D_COMPILE_STANDARD_FILE_INCLUDE, "main", "ps_4_0",
+        D3D10_SHADER_ENABLE_STRICTNESS | D3D10_SHADER_PACK_MATRIX_ROW_MAJOR, 0,
+        &ps_blob, &error_blob);
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: PS compilation failed: %x\n", hr));
+        if (error_blob) error_blob->Release();
+        vs_blob->Release();
+        return false;
+    }
+
+    m_vs_blob = vs_blob;
+    m_ps_blob = ps_blob;
+    return true;
+#else
+    // No D3DCompiler available - stub shaders
+    WWDEBUG_SAY(("DX12: D3DCompile not available, using null shaders\n"));
+    return true;
+#endif
+}
+
+/************************************************************************************************
  * DX12Backend::Create_Default_PSO -- Create a minimal pass-through graphics PSO                *
  ************************************************************************************************/
 bool DX12Backend::Create_Default_PSO()
 {
+    // Create the default shaders first
+    if (!Create_Default_Shaders()) {
+        WWDEBUG_SAY(("DX12: Create_Default_Shaders failed, using null shaders\n"));
+    }
+
     // Use member variables for consistency with Rebuild_PSO_From_State
     return Rebuild_PSO_From_State();
 }
@@ -589,6 +717,9 @@ void DX12Backend::Begin_Scene()
         static_cast<ID3D12GraphicsCommandList*>(m_command_list)->SetPipelineState(
             reinterpret_cast<ID3D12PipelineState*>(m_pipeline_state));
     }
+
+    // Apply matrix transforms
+    Apply_Matrices();
 
     // Set render targets
     if (m_rtv_heap && m_swap_chain) {
@@ -618,6 +749,339 @@ void DX12Backend::End_Scene(bool /*flip_frame*/)
 
     // Signal fence
     MoveToNextFrame();
+}
+
+/************************************************************************************************
+ * DX12Backend::Create_Vertex_Buffer -- Allocate a DEFAULT heap vertex buffer                    *
+ ************************************************************************************************/
+bool DX12Backend::Create_Vertex_Buffer(unsigned int size_bytes)
+{
+    if (!m_device || size_bytes == 0) return false;
+
+    SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_vertex_buffer));
+
+    D3D12_HEAP_PROPERTIES heap_props = {};
+    heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
+    heap_props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    heap_props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    heap_props.MipLevels = 1;
+    heap_props.PlaneMipDepth = 1;
+    heap_props.Flags = D3D12_HEAP_FLAG_NONE;
+
+    D3D12_RESOURCE_DESC res_desc = {};
+    res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    res_desc.Width = size_bytes;
+    res_desc.Height = 1;
+    res_desc.MipLevels = 1;
+    res_desc.DepthOrArraySize = 1;
+    res_desc.Format = DXGI_FORMAT_UNKNOWN;
+    res_desc.SampleDesc.Count = 1;
+    res_desc.SampleDesc.Quality = 0;
+    res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+    ID3D12Resource* vb = nullptr;
+    HRESULT hr = static_cast<ID3D12Device*>(m_device)->CreateCommittedResource(
+        &heap_props,
+        D3D12_HEAP_FLAG_NONE,
+        &res_desc,
+        D3D12_RESOURCE_STATE_COMMON,
+        nullptr,
+        IID_PPV_ARGS(&vb));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateCommittedResource (vertex buffer) failed: %x\n", hr));
+        return false;
+    }
+    m_vertex_buffer = vb;
+    return true;
+}
+
+/************************************************************************************************
+ * DX12Backend::Create_Index_Buffer -- Allocate a DEFAULT heap index buffer                      *
+ ************************************************************************************************/
+bool DX12Backend::Create_Index_Buffer(unsigned int size_bytes)
+{
+    if (!m_device || size_bytes == 0) return false;
+
+    SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_index_buffer));
+
+    D3D12_HEAP_PROPERTIES heap_props = {};
+    heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
+    heap_props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    heap_props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    heap_props.MipLevels = 1;
+    heap_props.PlaneMipDepth = 1;
+    heap_props.Flags = D3D12_HEAP_FLAG_NONE;
+
+    D3D12_RESOURCE_DESC res_desc = {};
+    res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    res_desc.Width = size_bytes;
+    res_desc.Height = 1;
+    res_desc.MipLevels = 1;
+    res_desc.DepthOrArraySize = 1;
+    res_desc.Format = DXGI_FORMAT_UNKNOWN;
+    res_desc.SampleDesc.Count = 1;
+    res_desc.SampleDesc.Quality = 0;
+    res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+    ID3D12Resource* ib = nullptr;
+    HRESULT hr = static_cast<ID3D12Device*>(m_device)->CreateCommittedResource(
+        &heap_props,
+        D3D12_HEAP_FLAG_NONE,
+        &res_desc,
+        D3D12_RESOURCE_STATE_COMMON,
+        nullptr,
+        IID_PPV_ARGS(&ib));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateCommittedResource (index buffer) failed: %x\n", hr));
+        return false;
+    }
+    m_index_buffer = ib;
+    return true;
+}
+
+/************************************************************************************************
+ * DX12Backend::Set_Vertex_Buffer -- Upload vertex data to the GPU buffer                       *
+ ************************************************************************************************/
+void DX12Backend::Set_Vertex_Buffer(void* data, unsigned int stride, unsigned int vertex_count)
+{
+    if (!data || !m_device || !m_command_list) return;
+
+    unsigned int size_bytes = stride * vertex_count;
+    if (size_bytes == 0) return;
+
+    // Create buffer if needed or too small
+    ID3D12Resource* vb = static_cast<ID3D12Resource*>(m_vertex_buffer);
+    if (!vb) {
+        if (!Create_Vertex_Buffer(size_bytes)) return;
+        vb = static_cast<ID3D12Resource*>(m_vertex_buffer);
+    }
+
+    // Store metadata
+    m_vertex_buffer_stride = stride;
+    m_vertex_buffer_offset = 0;
+    m_vertex_count = vertex_count;
+
+    // Create upload heap and copy data
+    D3D12_HEAP_PROPERTIES upload_heap_props = {};
+    upload_heap_props.Type = D3D12_HEAP_TYPE_UPLOAD;
+    upload_heap_props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    upload_heap_props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    upload_heap_props.MipLevels = 1;
+    upload_heap_props.PlaneMipDepth = 1;
+    upload_heap_props.Flags = D3D12_HEAP_FLAG_NONE;
+
+    D3D12_RESOURCE_DESC upload_res_desc = {};
+    upload_res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    upload_res_desc.Width = size_bytes;
+    upload_res_desc.Height = 1;
+    upload_res_desc.MipLevels = 1;
+    upload_res_desc.DepthOrArraySize = 1;
+    upload_res_desc.Format = DXGI_FORMAT_UNKNOWN;
+    upload_res_desc.SampleDesc.Count = 1;
+    upload_res_desc.SampleDesc.Quality = 0;
+    upload_res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    upload_res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+    ID3D12Resource* upload_buffer = nullptr;
+    HRESULT hr = static_cast<ID3D12Device*>(m_device)->CreateCommittedResource(
+        &upload_heap_props,
+        D3D12_HEAP_FLAG_NONE,
+        &upload_res_desc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        IID_PPV_ARGS(&upload_buffer));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateCommittedResource (upload buffer) failed: %x\n", hr));
+        return;
+    }
+
+    // Copy data to upload buffer
+    D3D12_SUBRESOURCE_DATA sub_data = {};
+    sub_data.pData = data;
+    sub_data.RowPitch = size_bytes;
+    sub_data.SlicePitch = size_bytes;
+
+    ID3D12GraphicsCommandList* cmd_list = static_cast<ID3D12GraphicsCommandList*>(m_command_list);
+
+    // Transition vertex buffer to COPY_DEST
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = vb;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd_list->ResourceBarrier(1, &barrier);
+
+    // Upload data via staging buffer
+    D3D12_RANGE read_range{0, 0};
+    void* mapped = nullptr;
+    upload_buffer->Map(0, &read_range, &mapped);
+    if (mapped) {
+        memcpy(mapped, data, size_bytes);
+    }
+    upload_buffer->Unmap(0, nullptr);
+
+    // Copy from upload to vertex buffer
+    cmd_list->CopyBufferRegion(vb, 0, upload_buffer, 0, size_bytes);
+
+    // Transition back to vertex buffer state
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER;
+    cmd_list->ResourceBarrier(1, &barrier);
+
+    // Build vertex buffer view
+    m_vertex_buffer_view.BufferLocation = vb->GetGPUVirtualAddress();
+    m_vertex_buffer_view.SizeInBytes = size_bytes;
+    m_vertex_buffer_view.StrideInBytes = stride;
+
+    // Execute and wait
+    cmd_list->Close();
+    ID3D12CommandList* cmd_lists[] = { cmd_list };
+    static_cast<ID3D12CommandQueue*>(m_command_queue)->ExecuteCommandLists(1, cmd_lists);
+    Wait_for_GPU();
+    static_cast<ID3D12CommandAllocator*>(m_command_allocator)->Reset();
+    cmd_list->Reset(static_cast<ID3D12CommandAllocator*>(m_command_allocator), nullptr);
+
+    upload_buffer->Release();
+}
+
+/************************************************************************************************
+ * DX12Backend::Set_Index_Buffer -- Upload index data to the GPU buffer                         *
+ ************************************************************************************************/
+void DX12Backend::Set_Index_Buffer(void* data, unsigned int index_count)
+{
+    if (!data || !m_device || !m_command_list) return;
+
+    // Use 16-bit indices by default
+    unsigned int size_bytes = sizeof(unsigned short) * index_count;
+    if (size_bytes == 0) return;
+
+    // Create buffer if needed or too small
+    ID3D12Resource* ib = static_cast<ID3D12Resource*>(m_index_buffer);
+    if (!ib) {
+        if (!Create_Index_Buffer(size_bytes)) return;
+        ib = static_cast<ID3D12Resource*>(m_index_buffer);
+    }
+
+    // Store metadata
+    m_index_count = index_count;
+
+    // Create upload heap and copy data
+    D3D12_HEAP_PROPERTIES upload_heap_props = {};
+    upload_heap_props.Type = D3D12_HEAP_TYPE_UPLOAD;
+    upload_heap_props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    upload_heap_props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    upload_heap_props.MipLevels = 1;
+    upload_heap_props.PlaneMipDepth = 1;
+    upload_heap_props.Flags = D3D12_HEAP_FLAG_NONE;
+
+    D3D12_RESOURCE_DESC upload_res_desc = {};
+    upload_res_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    upload_res_desc.Width = size_bytes;
+    upload_res_desc.Height = 1;
+    upload_res_desc.MipLevels = 1;
+    upload_res_desc.DepthOrArraySize = 1;
+    upload_res_desc.Format = DXGI_FORMAT_UNKNOWN;
+    upload_res_desc.SampleDesc.Count = 1;
+    upload_res_desc.SampleDesc.Quality = 0;
+    upload_res_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    upload_res_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+    ID3D12Resource* upload_buffer = nullptr;
+    HRESULT hr = static_cast<ID3D12Device*>(m_device)->CreateCommittedResource(
+        &upload_heap_props,
+        D3D12_HEAP_FLAG_NONE,
+        &upload_res_desc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        IID_PPV_ARGS(&upload_buffer));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateCommittedResource (upload buffer) failed: %x\n", hr));
+        return;
+    }
+
+    ID3D12GraphicsCommandList* cmd_list = static_cast<ID3D12GraphicsCommandList*>(m_command_list);
+
+    // Transition index buffer to COPY_DEST
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = ib;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_INDEX_BUFFER;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    cmd_list->ResourceBarrier(1, &barrier);
+
+    // Copy data to upload buffer
+    D3D12_RANGE read_range{0, 0};
+    void* mapped = nullptr;
+    upload_buffer->Map(0, &read_range, &mapped);
+    if (mapped) {
+        memcpy(mapped, data, size_bytes);
+    }
+    upload_buffer->Unmap(0, nullptr);
+
+    // Copy from upload to index buffer
+    cmd_list->CopyBufferRegion(ib, 0, upload_buffer, 0, size_bytes);
+
+    // Transition back to index buffer state
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_INDEX_BUFFER;
+    cmd_list->ResourceBarrier(1, &barrier);
+
+    // Build index buffer view (using 16-bit indices)
+    m_index_buffer_view.BufferLocation = ib->GetGPUVirtualAddress();
+    m_index_buffer_view.SizeInBytes = size_bytes;
+    m_index_buffer_view.Format = DXGI_FORMAT_R16_UINT;
+
+    // Execute and wait
+    cmd_list->Close();
+    ID3D12CommandList* cmd_lists[] = { cmd_list };
+    static_cast<ID3D12CommandQueue*>(m_command_queue)->ExecuteCommandLists(1, cmd_lists);
+    Wait_for_GPU();
+    static_cast<ID3D12CommandAllocator*>(m_command_allocator)->Reset();
+    cmd_list->Reset(static_cast<ID3D12CommandAllocator*>(m_command_allocator), nullptr);
+
+    upload_buffer->Release();
+}
+
+/************************************************************************************************
+ * DX12Backend::Draw_Primitive -- Draw non-indexed primitives                                   *
+ ************************************************************************************************/
+void DX12Backend::Draw_Primitive(unsigned int vertex_count, unsigned int start_vertex)
+{
+    if (!m_command_list) return;
+
+    ID3D12GraphicsCommandList* cmd_list = static_cast<ID3D12GraphicsCommandList*>(m_command_list);
+
+    // Set vertex buffer
+    cmd_list->IASetVertexBuffers(0, 1, &m_vertex_buffer_view);
+
+    // Set primitive topology (triangle list is most common for Renegade-style games)
+    cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Draw
+    cmd_list->DrawInstanced(vertex_count, 1, start_vertex, 0);
+}
+
+/************************************************************************************************
+ * DX12Backend::Draw_Indexed -- Draw indexed primitives                                          *
+ ************************************************************************************************/
+void DX12Backend::Draw_Indexed(unsigned int index_count, unsigned int start_index, unsigned int base_vertex)
+{
+    if (!m_command_list) return;
+
+    ID3D12GraphicsCommandList* cmd_list = static_cast<ID3D12GraphicsCommandList*>(m_command_list);
+
+    // Set index buffer
+    cmd_list->IASetIndexBuffer(&m_index_buffer_view);
+
+    // Set primitive topology
+    cmd_list->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+
+    // Draw indexed
+    cmd_list->DrawIndexedInstanced(index_count, 1, start_index, base_vertex, 0);
 }
 
 /************************************************************************************************
@@ -703,8 +1167,225 @@ int DX12Backend::Get_Texture_Bitdepth()
 void DX12Backend::Bind_Texture(unsigned int slot, void* texture)
 {
     if (slot >= 8) return; // Out of bounds
+
+    // Check if texture is a BackendSurfaceHandle*
+    if (texture != nullptr) {
+        BackendSurfaceHandle* surface = static_cast<BackendSurfaceHandle*>(texture);
+        if (surface->BackendData != nullptr) {
+            // It's a backend surface handle - extract the resource
+            ID3D12Resource* resource = static_cast<ID3D12Resource*>(surface->BackendData);
+
+            // Create SRV for this resource
+            D3D12_CPU_DESCRIPTOR_HANDLE srv_handle = {};
+            srv_handle.ptr = 0;
+            if (m_srv_heap) {
+                D3D12_DESCRIPTOR_HEAP_DESC heap_desc = {};
+                static_cast<ID3D12DescriptorHeap*>(m_srv_heap)->GetDesc(&heap_desc);
+                srv_handle = static_cast<ID3D12DescriptorHeap*>(m_srv_heap)->GetCPUDescriptorHandleForHeapStart();
+                srv_handle.ptr += static_cast<size_t>(slot) * m_srv_descriptor_size;
+
+                D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+                srv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+                srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+                srv_desc.Texture2D.MipLevels = 1;
+                srv_desc.Texture2D.MostDetailedMip = 0;
+                srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+                static_cast<ID3D12Device*>(m_device)->CreateShaderResourceView(resource, &srv_desc, srv_handle);
+
+                // Store in m_textures slot
+                m_textures[slot].resource = resource;
+                m_textures[slot].width = 0; // Unknown from surface handle
+                m_textures[slot].height = 0;
+                m_textures[slot].stride = 0;
+            }
+        } else {
+            // Raw pixel data pointer - need dimensions to create texture
+            // Caller should use Create_Texture_From_Data directly with dimensions
+            return;
+        }
+    }
+
     m_bound_textures[slot] = texture;
-    // Real implementation would descriptor UAV/SRV binding - deferred
+
+    // Bind the SRV to the graphics pipeline
+    if (m_srv_heap && m_command_list) {
+        D3D12_GPU_DESCRIPTOR_HANDLE gpu_handle = {};
+        gpu_handle.ptr = 0;
+        if (m_srv_heap) {
+            D3D12_DESCRIPTOR_HEAP_DESC heap_desc = {};
+            static_cast<ID3D12DescriptorHeap*>(m_srv_heap)->GetDesc(&heap_desc);
+            gpu_handle = static_cast<ID3D12DescriptorHeap*>(m_srv_heap)->GetGPUDescriptorHandleForHeapStart();
+            gpu_handle.ptr += static_cast<size_t>(slot) * m_srv_descriptor_size;
+
+            static_cast<ID3D12GraphicsCommandList*>(m_command_list)->SetGraphicsRootDescriptorTable(slot, gpu_handle);
+        }
+    }
+}
+
+/************************************************************************************************
+ * DX12Backend::Create_Texture_From_Data -- Create and upload a texture from raw pixel data    *
+ ************************************************************************************************/
+bool DX12Backend::Create_Texture_From_Data(void* data, unsigned int width, unsigned int height, unsigned int stride, unsigned int slot)
+{
+    if (slot >= 8 || !m_device || !data) return false;
+
+    // Release existing texture in this slot if present
+    if (m_textures[slot].resource) {
+        SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_textures[slot].resource));
+        m_textures[slot].resource = nullptr;
+    }
+
+    ID3D12Device* device = static_cast<ID3D12Device*>(m_device);
+
+    // Describe the texture resource
+    D3D12_RESOURCE_DESC tex_desc = {};
+    tex_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+    tex_desc.Width = width;
+    tex_desc.Height = height;
+    tex_desc.DepthOrArraySize = 1;
+    tex_desc.MipLevels = 1;
+    tex_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    tex_desc.SampleDesc.Count = 1;
+    tex_desc.SampleDesc.Quality = 0;
+    tex_desc.Layout = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+    tex_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+    // Create the default heap texture
+    D3D12_HEAP_PROPERTIES heap_props = {};
+    heap_props.Type = D3D12_HEAP_TYPE_DEFAULT;
+    heap_props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    heap_props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    heap_props.VisibleNodeMask = 0;
+    heap_props.CreationNodeMask = 0;
+
+    ID3D12Resource* texture = nullptr;
+    HRESULT hr = device->CreateCommittedResource(
+        &heap_props,
+        D3D12_HEAP_FLAG_NONE,
+        &tex_desc,
+        D3D12_RESOURCE_STATE_COPY_DEST,
+        nullptr,
+        IID_PPV_ARGS(&texture));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateCommittedResource (texture) failed: %x\n", hr));
+        return false;
+    }
+
+    // Calculate subresource layout
+    D3D12_PLACED_SUBRESOURCE_FOOTPRINT layout = {};
+    unsigned int num_rows = 0;
+    unsigned long long row_size_bytes = 0;
+    device->GetCopyableFootprints(&tex_desc, 0, 1, 0, &layout, &num_rows, &row_size_bytes, nullptr);
+
+    // Create upload heap buffer for staging
+    D3D12_HEAP_PROPERTIES upload_heap_props = {};
+    upload_heap_props.Type = D3D12_HEAP_TYPE_UPLOAD;
+    upload_heap_props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+    upload_heap_props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+    upload_heap_props.VisibleNodeMask = 0;
+    upload_heap_props.CreationNodeMask = 0;
+
+    D3D12_RESOURCE_DESC upload_desc = {};
+    upload_desc.Dimension = D3D12_RESOURCE_DIMENSION_BUFFER;
+    upload_desc.Width = layout.Footprint.RowPitch * num_rows;
+    upload_desc.Height = 1;
+    upload_desc.DepthOrArraySize = 1;
+    upload_desc.MipLevels = 1;
+    upload_desc.Format = DXGI_FORMAT_UNKNOWN;
+    upload_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+    upload_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+    ID3D12Resource* upload_buffer = nullptr;
+    hr = device->CreateCommittedResource(
+        &upload_heap_props,
+        D3D12_HEAP_FLAG_NONE,
+        &upload_desc,
+        D3D12_RESOURCE_STATE_GENERIC_READ,
+        nullptr,
+        IID_PPV_ARGS(&upload_buffer));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateCommittedResource (upload) failed: %x\n", hr));
+        texture->Release();
+        return false;
+    }
+
+    // Copy data to upload buffer
+    void* mapped_data = nullptr;
+    upload_buffer->Map(0, nullptr, &mapped_data);
+    if (mapped_data) {
+        // Copy row by row to handle stride differences
+        unsigned char* src = static_cast<unsigned char*>(data);
+        unsigned char* dst = static_cast<unsigned char*>(mapped_data);
+        for (unsigned int row = 0; row < height; row++) {
+            memcpy(dst + row * layout.Footprint.RowPitch, src + row * stride, width * 4);
+        }
+        upload_buffer->Unmap(0, nullptr);
+    }
+
+    // Reset command list for the copy operation
+    if (m_command_allocator && m_command_list) {
+        static_cast<ID3D12CommandAllocator*>(m_command_allocator)->Reset();
+        static_cast<ID3D12GraphicsCommandList*>(m_command_list)->Reset(
+            static_cast<ID3D12CommandAllocator*>(m_command_allocator), nullptr);
+
+        // Copy from upload buffer to texture
+        D3D12_TEXTURE_COPY_LOCATION src_location = {};
+        src_location.pResource = upload_buffer;
+        src_location.Type = D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT;
+        src_location.PlacedFootprint = layout;
+
+        D3D12_TEXTURE_COPY_LOCATION dst_location = {};
+        dst_location.pResource = texture;
+        dst_location.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+        dst_location.SubresourceIndex = 0;
+
+        static_cast<ID3D12GraphicsCommandList*>(m_command_list)->CopyTextureRegion(&dst_location, 0, 0, 0, &src_location, nullptr);
+
+        // Transition texture to shader read state
+        D3D12_RESOURCE_BARRIER barrier = {};
+        barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+        barrier.Transition.pResource = texture;
+        barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_DEST;
+        barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_GENERIC_READ;
+        barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+        static_cast<ID3D12GraphicsCommandList*>(m_command_list)->ResourceBarrier(1, &barrier);
+
+        // Close and execute command list
+        static_cast<ID3D12GraphicsCommandList*>(m_command_list)->Close();
+        ID3D12CommandList* cmd_lists[] = { static_cast<ID3D12GraphicsCommandList*>(m_command_list) };
+        static_cast<ID3D12CommandQueue*>(m_command_queue)->ExecuteCommandLists(1, cmd_lists);
+
+        // Wait for GPU to finish the copy
+        Wait_for_GPU();
+    }
+
+    // Release the upload buffer
+    SafeRelease(reinterpret_cast<ID3D12Resource**>(&upload_buffer));
+
+    // Create SRV for the texture
+    if (m_srv_heap) {
+        D3D12_CPU_DESCRIPTOR_HANDLE srv_handle = static_cast<ID3D12DescriptorHeap*>(m_srv_heap)->GetCPUDescriptorHandleForHeapStart();
+        srv_handle.ptr += static_cast<size_t>(slot) * m_srv_descriptor_size;
+
+        D3D12_SHADER_RESOURCE_VIEW_DESC srv_desc = {};
+        srv_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        srv_desc.ViewDimension = D3D12_SRV_DIMENSION_TEXTURE2D;
+        srv_desc.Texture2D.MipLevels = 1;
+        srv_desc.Texture2D.MostDetailedMip = 0;
+        srv_desc.Shader4ComponentMapping = D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING;
+
+        device->CreateShaderResourceView(texture, &srv_desc, srv_handle);
+    }
+
+    // Store the texture in our slot
+    m_textures[slot].resource = texture;
+    m_textures[slot].width = width;
+    m_textures[slot].height = height;
+    m_textures[slot].stride = stride;
+    m_bound_textures[slot] = texture;
+
+    return true;
 }
 
 /************************************************************************************************
@@ -797,6 +1478,26 @@ void DX12Backend::Set_DX8_Render_State(int state, unsigned value)
     if (m_state_dirty) {
         Rebuild_PSO_From_State();
     }
+}
+
+/************************************************************************************************
+ * DX12Backend::Set_Lighting -- Enable or disable lighting                                      *
+ ************************************************************************************************/
+void DX12Backend::Set_Lighting(bool enable)
+{
+    m_lighting_enabled = enable;
+    m_dirty_matrix = true;  // lighting affects vertex processing
+    Rebuild_PSO_From_State();
+}
+
+/************************************************************************************************
+ * DX12Backend::Set_Fog -- Enable or disable fog                                                *
+ ************************************************************************************************/
+void DX12Backend::Set_Fog(bool enable)
+{
+    m_fog_enabled = enable;
+    m_dirty_matrix = true;  // fog is part of pixel shader
+    Rebuild_PSO_From_State();
 }
 
 /************************************************************************************************
@@ -1046,6 +1747,109 @@ void DX12Backend::Get_Render_Target_Resolution(int & w, int & h, int & bits, boo
 int DX12Backend::Get_Device_Resolution_Width() { return m_width; }
 int DX12Backend::Get_Device_Resolution_Height() { return m_height; }
 
+/************************************************************************************************
+ * DX12Backend::Set_World_Matrix -- Set world transform matrix                                  *
+ ************************************************************************************************/
+void DX12Backend::Set_World_Matrix(const float* matrix4x4)
+{
+    if (matrix4x4) {
+        memcpy(m_world_matrix, matrix4x4, sizeof(m_world_matrix));
+        m_dirty_matrix = true;
+    }
+}
+
+/************************************************************************************************
+ * DX12Backend::Set_View_Matrix -- Set view transform matrix                                  *
+ ************************************************************************************************/
+void DX12Backend::Set_View_Matrix(const float* matrix4x4)
+{
+    if (matrix4x4) {
+        memcpy(m_view_matrix, matrix4x4, sizeof(m_view_matrix));
+        m_dirty_matrix = true;
+    }
+}
+
+/************************************************************************************************
+ * DX12Backend::Set_Projection_Matrix -- Set projection transform matrix                       *
+ ************************************************************************************************/
+void DX12Backend::Set_Projection_Matrix(const float* matrix4x4)
+{
+    if (matrix4x4) {
+        memcpy(m_projection_matrix, matrix4x4, sizeof(m_projection_matrix));
+        m_dirty_matrix = true;
+    }
+}
+
+/************************************************************************************************
+ * DX12Backend::Apply_Matrices -- Create root signature if needed and set matrix constants     *
+ ************************************************************************************************/
+void DX12Backend::Apply_Matrices()
+{
+    if (!m_dirty_matrix) return;
+    if (!m_device || !m_command_list) return;
+
+    // Create root signature once if not already created
+    if (!m_root_signature) {
+        // Root signature with 3 constant ranges (world, view, projection)
+        // Each matrix is 16 floats = 48 D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS total
+        D3D12_ROOT_PARAMETER root_params[3] = {};
+
+        // World matrix at root slot 0
+        root_params[0].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+        root_params[0].Constants.ShaderRegister = 0;
+        root_params[0].Constants.RegisterSpace = 0;
+        root_params[0].Constants.Num32BitValues = 16;
+        root_params[0].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+        // View matrix at root slot 1
+        root_params[1].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+        root_params[1].Constants.ShaderRegister = 1;
+        root_params[1].Constants.RegisterSpace = 0;
+        root_params[1].Constants.Num32BitValues = 16;
+        root_params[1].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+        // Projection matrix at root slot 2
+        root_params[2].ParameterType = D3D12_ROOT_PARAMETER_TYPE_32BIT_CONSTANTS;
+        root_params[2].Constants.ShaderRegister = 2;
+        root_params[2].Constants.RegisterSpace = 0;
+        root_params[2].Constants.Num32BitValues = 16;
+        root_params[2].ShaderVisibility = D3D12_SHADER_VISIBILITY_ALL;
+
+        D3D12_ROOT_SIGNATURE_DESC rs_desc = {};
+        rs_desc.NumParameters = 3;
+        rs_desc.pParameters = root_params;
+        rs_desc.Flags = D3D12_ROOT_SIGNATURE_FLAG_NONE;
+
+        ID3DBlob* blob = nullptr;
+        ID3DBlob* error = nullptr;
+        HRESULT hr = D3D12SerializeRootSignature(&rs_desc, D3D_ROOT_SIGNATURE_VERSION_1, &blob, &error);
+        if (FAILED(hr)) {
+            WWDEBUG_SAY(("DX12: D3D12SerializeRootSignature failed: %x\n", hr));
+            if (error) error->Release();
+            return;
+        }
+
+        hr = static_cast<ID3D12Device*>(m_device)->CreateRootSignature(
+            0, blob->GetBufferPointer(), blob->GetBufferSize(), IID_PPV_ARGS(reinterpret_cast<ID3D12RootSignature**>(&m_root_signature)));
+        blob->Release();
+        if (FAILED(hr)) {
+            WWDEBUG_SAY(("DX12: CreateRootSignature failed: %x\n", hr));
+            return;
+        }
+
+        // Rebuild PSO with the new root signature
+        Rebuild_PSO_From_State();
+    }
+
+    // Set matrix constants
+    ID3D12GraphicsCommandList* cmd_list = static_cast<ID3D12GraphicsCommandList*>(m_command_list);
+    cmd_list->SetGraphicsRoot32BitConstants(0, 16, m_world_matrix, 0);
+    cmd_list->SetGraphicsRoot32BitConstants(1, 16, m_view_matrix, 0);
+    cmd_list->SetGraphicsRoot32BitConstants(2, 16, m_projection_matrix, 0);
+
+    m_dirty_matrix = false;
+}
+
 #else // !_WIN32
 
 // DX12 is Windows-only - provide stubs for non-Windows builds
@@ -1130,22 +1934,55 @@ DX12Backend::DX12Backend() :
     m_dx8_cull_mode(D3DCULL_NONE),
     m_dx8_zenable(D3DZB_TRUE),
     m_dx8_fill_solid(1),
-    m_state_dirty(false)
+    m_state_dirty(false),
+    m_root_signature(nullptr),
+    m_dirty_matrix(false),
+    m_lighting_enabled(true),
+    m_fog_enabled(false),
+    m_vs_blob(nullptr),
+    m_ps_blob(nullptr),
+    m_vertex_buffer(nullptr),
+    m_index_buffer(nullptr),
+    m_vertex_buffer_stride(0),
+    m_vertex_buffer_offset(0),
+    m_vertex_count(0),
+    m_index_count(0)
 {
+    // Identity matrices
+    const float identity[16] = {1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1};
+    memcpy(m_world_matrix, identity, sizeof(m_world_matrix));
+    memcpy(m_view_matrix, identity, sizeof(m_view_matrix));
+    memcpy(m_projection_matrix, identity, sizeof(m_projection_matrix));
     // Initialize bound textures array
     for (unsigned int i = 0; i < 8; i++) {
         m_bound_textures[i] = nullptr;
+        m_textures[i].resource = nullptr;
+        m_textures[i].width = 0;
+        m_textures[i].height = 0;
+        m_textures[i].stride = 0;
     }
 }
 
 DX12Backend::~DX12Backend() { Shutdown(); }
 void DX12Backend::Shutdown() {
+    for (unsigned int i = 0; i < 8; i++) {
+        m_textures[i].resource = nullptr;
+        m_textures[i].width = 0;
+        m_textures[i].height = 0;
+        m_textures[i].stride = 0;
+    }
     m_pipeline_state = nullptr;
     m_staging_texture = nullptr;
+    m_root_signature = nullptr;
+    m_vs_blob = nullptr;
+    m_ps_blob = nullptr;
     m_initialized = false;
 }
 bool DX12Backend::Create_Descriptor_Heaps() { return false; }
+bool DX12Backend::Create_Default_Shaders() { return false; }
 bool DX12Backend::Create_Default_PSO() { return false; }
+void DX12Backend::Set_Lighting(bool) {}
+void DX12Backend::Set_Fog(bool) {}
 bool DX12Backend::Init(void*, bool) { return false; }
 bool DX12Backend::Set_Any_Render_Device() { return false; }
 bool DX12Backend::Set_Render_Device(const char*, int, int, int, int, bool) { return false; }
@@ -1172,6 +2009,7 @@ void DX12Backend::Lock_Front_Buffer_Surface(BackendSurfaceHandle*, int, int, Sur
 void DX12Backend::Unlock_Front_Buffer_Surface(BackendSurfaceHandle*) {}
 bool DX12Backend::Create_Staging_Texture(int, int) { return false; }
 bool DX12Backend::Copy_To_Staging(int, int) { return false; }
+bool DX12Backend::Create_Texture_From_Data(void*, unsigned int, unsigned int, unsigned int, unsigned int) { return false; }
 int DX12Backend::Get_Render_Device_Count() { return 0; }
 int DX12Backend::Get_Render_Device() { return 0; }
 const char* DX12Backend::Get_Render_Device_Name(int) { return "DX12 (unavailable on this platform)"; }
@@ -1185,5 +2023,15 @@ bool DX12Backend::Registry_Save_Render_Device(const char*) { return true; }
 bool DX12Backend::Registry_Load_Render_Device(const char*, bool) { return true; }
 bool DX12Backend::Registry_Save_Render_Device(const char*, int, int, int, int, bool, int) { return true; }
 bool DX12Backend::Registry_Load_Render_Device(const char*, char*, int, int&, int&, int&, int&, int&) { return true; }
+void DX12Backend::Set_World_Matrix(const float*) {}
+void DX12Backend::Set_View_Matrix(const float*) {}
+void DX12Backend::Set_Projection_Matrix(const float*) {}
+void DX12Backend::Apply_Matrices() {}
+bool DX12Backend::Create_Vertex_Buffer(unsigned int) { return false; }
+bool DX12Backend::Create_Index_Buffer(unsigned int) { return false; }
+void DX12Backend::Set_Vertex_Buffer(void*, unsigned int, unsigned int) {}
+void DX12Backend::Set_Index_Buffer(void*, unsigned int) {}
+void DX12Backend::Draw_Primitive(unsigned int, unsigned int) {}
+void DX12Backend::Draw_Indexed(unsigned int, unsigned int, unsigned int) {}
 
 #endif // !_WIN32
