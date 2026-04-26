@@ -1,0 +1,18 @@
+DONE
+
+DX12 Texture Creation Task Completed:
+
+Added to dx12backend.h:
+- m_default_render_target (void*) - stores the swap chain back buffer resource
+- m_bound_textures[8] (void*) - array for bound texture slots
+- Create_Default_Render_Target() - creates RTV for swap chain back buffer
+- Bind_Texture(unsigned int slot, void* texture) - binds texture to shader slot
+
+Added to dx12backend.cpp:
+- Create_Default_Render_Target() - retrieves current back buffer and creates RTV
+- Init() now calls Create_Default_Render_Target() after Create_Swapchain instead of Create_Descriptor_Heaps
+- Set_Render_Target() improved to use m_default_render_target when nullptr is passed, and extracts DX12 resource from BackendSurfaceHandle* when non-null
+- Bind_Texture() stub - stores texture in m_bound_textures[slot] for later use
+- Added m_default_render_target and m_bound_textures to both constructors
+
+All code compiles cleanly under the verification command.

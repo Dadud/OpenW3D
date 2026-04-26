@@ -76,6 +76,8 @@ DX12Backend::DX12Backend() :
     m_command_allocator(nullptr),
     m_command_list(nullptr),
     m_fence(nullptr),
+    m_srv_heap(nullptr),
+    m_dsv_heap(nullptr),
     m_hwnd(nullptr),
     m_width(DEFAULT_WIDTH),
     m_height(DEFAULT_HEIGHT),
@@ -87,10 +89,17 @@ DX12Backend::DX12Backend() :
     m_current_device_index(0),
     m_render_device(0),
     m_render_target(nullptr),
+    m_default_render_target(nullptr),
     m_rtv_descriptor_size(0),
+    m_srv_descriptor_size(0),
+    m_dsv_descriptor_size(0),
     m_fence_value(0),
     m_fence_event(nullptr)
 {
+    // Initialize bound textures array
+    for (unsigned int i = 0; i < 8; i++) {
+        m_bound_textures[i] = nullptr;
+    }
 }
 
 /************************************************************************************************
@@ -112,6 +121,8 @@ void DX12Backend::Shutdown()
 
     SafeRelease(reinterpret_cast<IDXGISwapChain**>(&m_swap_chain));
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_rtv_heap));
+    SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_srv_heap));
+    SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_dsv_heap));
     SafeRelease(reinterpret_cast<ID3D12CommandList**>(&m_command_list));
     SafeRelease(reinterpret_cast<ID3D12CommandAllocator**>(&m_command_allocator));
     SafeRelease(reinterpret_cast<ID3D12Fence**>(&m_fence));
@@ -217,6 +228,11 @@ bool DX12Backend::Init(void * hwnd, bool /*lite*/)
         return false;
     }
 
+    // Create default render target view for the swap chain back buffer
+    if (!Create_Default_Render_Target()) {
+        return false;
+    }
+
     m_initialized = true;
     return true;
 }
@@ -264,6 +280,47 @@ void DX12Backend::Wait_for_GPU()
     fence->SetEventOnCompletion(m_fence_value, m_fence_event);
     WaitForSingleObject(m_fence_event, INFINITE);
     m_fence_value++;
+}
+
+/************************************************************************************************
+ * DX12Backend::Create_Descriptor_Heaps -- Create SRV and DSV descriptor heaps                   *
+ ************************************************************************************************/
+bool DX12Backend::Create_Descriptor_Heaps()
+{
+    if (!m_device) return false;
+
+
+    // Create SRV heap for shader resource views (textures, constant buffers)
+    D3D12_DESCRIPTOR_HEAP_DESC srv_heap_desc = {};
+    srv_heap_desc.NumDescriptors = 256;
+    srv_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
+    srv_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
+
+    ID3D12DescriptorHeap* srv_heap = nullptr;
+    HRESULT hr = static_cast<ID3D12Device*>(m_device)->CreateDescriptorHeap(&srv_heap_desc, IID_PPV_ARGS(&srv_heap));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateDescriptorHeap (SRV) failed: %x\n", hr));
+        return false;
+    }
+    m_srv_heap = srv_heap;
+    m_srv_descriptor_size = static_cast<ID3D12Device*>(m_device)->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+
+    // Create DSV heap for depth/stencil views
+    D3D12_DESCRIPTOR_HEAP_DESC dsv_heap_desc = {};
+    dsv_heap_desc.NumDescriptors = 16;
+    dsv_heap_desc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_DSV;
+    dsv_heap_desc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_NONE;
+
+    ID3D12DescriptorHeap* dsv_heap = nullptr;
+    hr = static_cast<ID3D12Device*>(m_device)->CreateDescriptorHeap(&dsv_heap_desc, IID_PPV_ARGS(&dsv_heap));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateDescriptorHeap (DSV) failed: %x\n", hr));
+        return false;
+    }
+    m_dsv_heap = dsv_heap;
+    m_dsv_descriptor_size = static_cast<ID3D12Device*>(m_device)->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_DSV);
+
+    return true;
 }
 
 /************************************************************************************************
@@ -336,6 +393,32 @@ bool DX12Backend::Create_Swapchain(int width, int height)
         }
         rtv_handle.ptr += m_rtv_descriptor_size;
     }
+
+    return true;
+}
+
+/************************************************************************************************
+ * DX12Backend::Create_Default_Render_Target -- Create RTV for swap chain back buffer          *
+ ************************************************************************************************/
+bool DX12Backend::Create_Default_Render_Target()
+{
+    if (!m_device || !m_swap_chain) return false;
+
+    // Get the current back buffer
+    ID3D12Resource* back_buffer = nullptr;
+    unsigned int idx = static_cast<IDXGISwapChain*>(m_swap_chain)->GetCurrentBackBufferIndex();
+    HRESULT hr = static_cast<IDXGISwapChain*>(m_swap_chain)->GetBuffer(idx, IID_PPV_ARGS(&back_buffer));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: GetBuffer for default render target failed: %x\n", hr));
+        return false;
+    }
+
+    // Store the back buffer resource as the default render target
+    m_default_render_target = back_buffer;
+
+    // Create RTV for the default render target
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = static_cast<ID3D12DescriptorHeap*>(m_rtv_heap)->GetCPUDescriptorHandleForHeapStart();
+    static_cast<ID3D12Device*>(m_device)->CreateRenderTargetView(back_buffer, nullptr, rtv_handle);
 
     return true;
 }
@@ -461,6 +544,16 @@ int DX12Backend::Get_Texture_Bitdepth()
 }
 
 /************************************************************************************************
+ * DX12Backend::Bind_Texture -- Bind a texture to a shader slot                                *
+ ************************************************************************************************/
+void DX12Backend::Bind_Texture(unsigned int slot, void* texture)
+{
+    if (slot >= 8) return; // Out of bounds
+    m_bound_textures[slot] = texture;
+    // Real implementation would descriptor UAV/SRV binding - deferred
+}
+
+/************************************************************************************************
  * DX12Backend::Set_Viewport -- Set the viewport for rendering                                  *
  ************************************************************************************************/
 void DX12Backend::Set_Viewport(const void* viewport)
@@ -494,16 +587,26 @@ void DX12Backend::Set_Render_Target(void* target)
 
     // nullptr = reset to default (swap chain back buffer)
     if (target == nullptr) {
-        if (m_rtv_heap) {
+        if (m_default_render_target && m_rtv_heap) {
             D3D12_CPU_DESCRIPTOR_HANDLE rtv = static_cast<ID3D12DescriptorHeap*>(m_rtv_heap)->GetCPUDescriptorHandleForHeapStart();
             static_cast<ID3D12GraphicsCommandList*>(m_command_list)->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
         }
         return;
     }
 
-    // target would be a BackendSurfaceHandle* in a full implementation
-    // For now, just use the swap chain back buffer
-    Set_Render_Target(nullptr);
+    // target is a BackendSurfaceHandle* - extract the DX12 resource
+    BackendSurfaceHandle* surface = static_cast<BackendSurfaceHandle*>(target);
+    if (surface->BackendData) {
+        m_render_target = surface->BackendData;
+        // Create an RTV for this resource and bind it
+        // For now, use the first slot in the RTV heap
+        if (m_rtv_heap) {
+            D3D12_CPU_DESCRIPTOR_HANDLE rtv = static_cast<ID3D12DescriptorHeap*>(m_rtv_heap)->GetCPUDescriptorHandleForHeapStart();
+            static_cast<ID3D12Device*>(m_device)->CreateRenderTargetView(
+                static_cast<ID3D12Resource*>(m_render_target), nullptr, rtv);
+            static_cast<ID3D12GraphicsCommandList*>(m_command_list)->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+        }
+    }
 }
 
 /************************************************************************************************
@@ -664,6 +767,8 @@ DX12Backend::DX12Backend() :
     m_command_allocator(nullptr),
     m_command_list(nullptr),
     m_fence(nullptr),
+    m_srv_heap(nullptr),
+    m_dsv_heap(nullptr),
     m_hwnd(nullptr),
     m_width(DEFAULT_WIDTH),
     m_height(DEFAULT_HEIGHT),
@@ -675,14 +780,22 @@ DX12Backend::DX12Backend() :
     m_current_device_index(0),
     m_render_device(0),
     m_render_target(nullptr),
+    m_default_render_target(nullptr),
     m_rtv_descriptor_size(0),
+    m_srv_descriptor_size(0),
+    m_dsv_descriptor_size(0),
     m_fence_value(0),
     m_fence_event(nullptr)
 {
+    // Initialize bound textures array
+    for (unsigned int i = 0; i < 8; i++) {
+        m_bound_textures[i] = nullptr;
+    }
 }
 
 DX12Backend::~DX12Backend() { Shutdown(); }
 void DX12Backend::Shutdown() { m_initialized = false; }
+bool DX12Backend::Create_Descriptor_Heaps() { return false; }
 bool DX12Backend::Init(void*, bool) { return false; }
 bool DX12Backend::Set_Any_Render_Device() { return false; }
 bool DX12Backend::Set_Render_Device(const char*, int, int, int, int, bool) { return false; }
@@ -699,6 +812,7 @@ void DX12Backend::Set_Swap_Interval(int) {}
 int DX12Backend::Get_Swap_Interval() { return 0; }
 void DX12Backend::Set_Texture_Bitdepth(int) {}
 int DX12Backend::Get_Texture_Bitdepth() { return 0; }
+void DX12Backend::Bind_Texture(unsigned int, void*) {}
 void DX12Backend::Set_Viewport(const void*) {}
 void DX12Backend::Set_Render_Target(void*) {}
 void DX12Backend::Set_DX8_Render_State(int, unsigned) {}

@@ -98,6 +98,8 @@ private:
     void* m_command_allocator;
     void* m_command_list;
     void* m_fence;
+    void* m_srv_heap;
+    void* m_dsv_heap;
 
     void* m_hwnd;
     int m_width;
@@ -110,16 +112,23 @@ private:
     int m_current_device_index;
     int m_render_device;
     void* m_render_target;
+    void* m_default_render_target;
+    void* m_bound_textures[8];
 
     unsigned int m_rtv_descriptor_size;
+    unsigned int m_srv_descriptor_size;
+    unsigned int m_dsv_descriptor_size;
     unsigned long long m_fence_value;
     void* m_fence_event;
 
     bool Create_DX12_Device(void* adapter);
     bool Create_Command_Objects();
     bool Create_Swap_Chain_Buffers();
+    bool Create_Descriptor_Heaps();
+    bool Create_Default_Render_Target();
     void Wait_for_GPU();
     void MoveToNextFrame();
+    void Bind_Texture(unsigned int slot, void* texture);
 };
 
 #endif // DX12BACKEND_H
