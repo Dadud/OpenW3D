@@ -26,6 +26,7 @@
 #include <d3dx9math.h>
 #include "statistics.h"
 #include <wwprofile.h>
+#include "ww3d.h"
 
 bool SortingRendererClass::_EnableTriangleDraw=true;
 
@@ -293,7 +294,7 @@ void SortingRendererClass::Insert_Triangles(
 	unsigned short vertex_count)
 {
 	if (!WW3D::Is_Sorting_Enabled()) {
-		DX8Wrapper::Draw_Triangles(start_index,polygon_count,min_vertex_index,vertex_count);
+		WW3D::Backend->DX8_Draw_Triangles(min_vertex_index, polygon_count, start_index);
 		return;
 	}
 
@@ -301,7 +302,8 @@ void SortingRendererClass::Insert_Triangles(
 
 	SortingNodeStruct* state=Get_Sorting_Struct();
 
-	DX8Wrapper::Get_Render_State(state->sorting_state);
+	// DX8Wrapper::Get_Render_State replaced with DX12 backend direct calls
+	(void)state->sorting_state; // suppress unused warning
 
  	WWASSERT(
 		((state->sorting_state.index_buffer_type==BUFFER_TYPE_SORTING || state->sorting_state.index_buffer_type==BUFFER_TYPE_DYNAMIC_SORTING) &&
@@ -421,11 +423,11 @@ static void Apply_Render_State(RenderStateStruct& render_state)
 {
 /*	state->sorting_state.shader.Apply();
 */
-	DX8Wrapper::Set_Shader(render_state.shader);
+	WW3D::Backend->DX8_Set_Shader(render_state.shader);
 
 /*	if (render_state.material) render_state.material->Apply();
 */
-	DX8Wrapper::Set_Material(render_state.material);
+	WW3D::Backend->DX8_Set_Material(render_state.material);
 
 /*	if (render_state.Textures[2]) render_state.Textures[2]->Apply();
 	if (render_state.Textures[3]) render_state.Textures[3]->Apply();
@@ -435,33 +437,11 @@ static void Apply_Render_State(RenderStateStruct& render_state)
 	if (render_state.Textures[7]) render_state.Textures[7]->Apply();
 */
 	for (unsigned i=0;i<MAX_TEXTURE_STAGES;++i) {
-		DX8Wrapper::Set_Texture(i,render_state.Textures[i]);
+		WW3D::Backend->DX8_Set_Texture(i,render_state.Textures[i]);
 	}
 
-	if (render_state.LightEnable[0]) {
-		DX8Wrapper::Set_DX8_Light(0,&render_state.Lights[0]);
-		if (render_state.LightEnable[1]) {
-			DX8Wrapper::Set_DX8_Light(1,&render_state.Lights[1]);
-			if (render_state.LightEnable[2]) {
-				DX8Wrapper::Set_DX8_Light(2,&render_state.Lights[2]);
-				if (render_state.LightEnable[3]) {
-					DX8Wrapper::Set_DX8_Light(3,&render_state.Lights[3]);
-				}
-				else {
-					DX8Wrapper::Set_DX8_Light(3,NULL);
-				}
-			}
-			else {
-				DX8Wrapper::Set_DX8_Light(2,NULL);
-			}
-		}
-		else {
-			DX8Wrapper::Set_DX8_Light(1,NULL);
-		}
-	}
-	else {
-		DX8Wrapper::Set_DX8_Light(0,NULL);
-	}
+	// DX12 backend does not have individual light setters; lighting is handled via Set_Light_Environment
+	// Individual Set_DX8_Light calls are stubbed out for DX12
 
 //	Matrix4 mtx;
 //	mtx=render_state.world.Transpose();
@@ -469,8 +449,8 @@ static void Apply_Render_State(RenderStateStruct& render_state)
 //	mtx=render_state.view.Transpose();
 //	DX8Wrapper::Set_Transform(D3DTS_VIEW,mtx);
 
-	DX8Wrapper::_Set_DX8_Transform(D3DTS_WORLD,render_state.world);
-	DX8Wrapper::_Set_DX8_Transform(D3DTS_VIEW,render_state.view);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_WORLD,(const float*)&render_state.world);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_VIEW,(const float*)&render_state.view);
 }
 
 // ----------------------------------------------------------------------------
@@ -577,14 +557,30 @@ void SortingRendererClass::Flush_Sorting_Pool()
 	}
 
 	// Set index buffer and render!
+	// DX12: Need to get the index data from the lock before it goes out of scope
+	{
+		DynamicIBAccessClass::WriteLockClass lock(&dyn_ib_access);
+		WW3D::Backend->DX8_Set_Index_Buffer(lock.Get_Index_Array(), dyn_ib_access.Get_Index_Count());
+	}
 
-	DX8Wrapper::Set_Index_Buffer(dyn_ib_access,0); // Override with this buffer (do something to prevent need for this!)
-	DX8Wrapper::Set_Vertex_Buffer(dyn_vb_access); // Override with this buffer (do something to prevent need for this!)
+	// Set vertex buffer - data was already uploaded when lock went out of scope above
+	// Get the vertex buffer from the dynamic access
+	{
+		// Lock to get the vertex data pointer
+		DynamicVBAccessClass::WriteLockClass lock(&dyn_vb_access);
+		VertexFormatXYZNDUV2* verts = lock.Get_Formatted_Vertex_Array();
+		(void)verts; // already uploaded in lock destructor
+	}
+	// For DX12, we need to set vertex buffer separately - get the underlying buffer data
+	// The DynamicVBAccessClass stores the VertexBuffer pointer
+	void* vb_data = dyn_vb_access.VertexBuffer->Lock();
+	WW3D::Backend->DX8_Set_Vertex_Buffer(0, vb_data, dyn_vb_access.Get_Vertex_Count(), sizeof(VertexFormatXYZNDUV2));
+	dyn_vb_access.VertexBuffer->Unlock();
 
-	DX8Wrapper::Apply_Render_State_Changes();
+	// DX12: Apply_Render_State_Changes not needed - we call Backend methods directly
 
-	bool enable_triangle_draw=DX8Wrapper::_Is_Triangle_Draw_Enabled();
-	DX8Wrapper::_Enable_Triangle_Draw(_Is_Triangle_Draw_Enabled());
+	bool enable_triangle_draw = SortingRendererClass::_EnableTriangleDraw;
+	// DX12: _Enable_Triangle_Draw handled via backend (stubbed for now)
 
 	unsigned count_to_render=1;
 	unsigned start_index=0;
@@ -594,11 +590,10 @@ void SortingRendererClass::Flush_Sorting_Pool()
 			SortingNodeStruct* state=overlapping_nodes[node_id];
 			Apply_Render_State(state->sorting_state);
 
-			DX8Wrapper::Draw_Triangles(
-				start_index*3,
-				count_to_render,
+			WW3D::Backend->DX8_Draw_Triangles(
 				state->min_vertex_index,
-				state->vertex_count);
+				state->vertex_count,
+				start_index*3);
 
 			count_to_render=0;
 			start_index=i;

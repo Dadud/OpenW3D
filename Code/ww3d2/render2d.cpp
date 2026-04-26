@@ -563,18 +563,18 @@ void Render2DClass::Render(void)
 	vp.Height	= height;
 	vp.MinZ		= 0;
 	vp.MaxZ		= 1;
-	DX8Wrapper::Set_Viewport(&vp);
+	WW3D::Backend->DX8_Set_Viewport(&vp);
 
-	DX8Wrapper::Set_Shader(Shader);
-	DX8Wrapper::Set_Texture(0,Texture);
+	WW3D::Backend->DX8_Set_Shader(&Shader);
+	WW3D::Backend->DX8_Set_Texture(0, Texture);
 
 	VertexMaterialClass *vm=VertexMaterialClass::Get_Preset(VertexMaterialClass::PRELIT_DIFFUSE);
-	DX8Wrapper::Set_Material(vm);
+	WW3D::Backend->DX8_Set_Material(vm);
 	REF_PTR_RELEASE(vm);
 
-	DX8Wrapper::Set_World_Identity();
-	DX8Wrapper::Set_View_Identity();
-	DX8Wrapper::Set_Transform(D3DTS_PROJECTION,identity);
+	WW3D::Backend->DX8_Set_World_Identity();
+	WW3D::Backend->DX8_Set_View_Identity();
+	WW3D::Backend->DX8_Set_Transform(D3DTS_PROJECTION, (const float*)&identity);
 
 	DynamicVBAccessClass vb(BUFFER_TYPE_DYNAMIC_DX8,dynamic_fvf_type,Vertices.Count());
 	{
@@ -601,12 +601,12 @@ void Render2DClass::Render(void)
 			mem[i]=Indices[i];
 	}
 
-	DX8Wrapper::Set_Vertex_Buffer(vb);
-	DX8Wrapper::Set_Index_Buffer(ib,0);
-	DX8Wrapper::Draw_Triangles(0,Indices.Count()/3,0,Vertices.Count());
+	WW3D::Backend->DX8_Set_Vertex_Buffer(0, &vb, Vertices.Count(), vb.Get_Stride());
+	WW3D::Backend->DX8_Set_Index_Buffer(&ib, Indices.Count());
+	WW3D::Backend->DX8_Draw_Triangles(0, Vertices.Count(), 0);
 
-	DX8Wrapper::Set_Transform(D3DTS_VIEW,view);
-	DX8Wrapper::Set_Transform(D3DTS_PROJECTION,proj);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_VIEW, (const float*)&view);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_PROJECTION, (const float*)&proj);
 }
 
 

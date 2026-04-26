@@ -724,12 +724,12 @@ void CameraClass::Apply(void)
 	vp.Height = (DWORD)((Viewport.Max.Y - Viewport.Min.Y) * (float)height);
 	vp.MinZ = ZBufferMin;
 	vp.MaxZ = ZBufferMax;
-	DX8Wrapper::Set_Viewport(&vp);
+	WW3D::Backend->DX8_Set_Viewport(&vp);
 
 	Matrix4 d3dprojection;
 	Get_D3D_Projection_Matrix(&d3dprojection);
-	DX8Wrapper::Set_Projection_Transform_With_Z_Bias(d3dprojection,ZNear,ZFar);
-	DX8Wrapper::Set_Transform(D3DTS_VIEW,CameraInvTransform);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_PROJECTION,d3dprojection);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_VIEW,CameraInvTransform);
 }
 
 void CameraClass::Set_Clip_Planes(float znear,float zfar)

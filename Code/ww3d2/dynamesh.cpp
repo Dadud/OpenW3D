@@ -35,6 +35,7 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #include "dynamesh.h"
+#include "ww3d.h"
 #include "dx8vertexbuffer.h"
 #include "dx8indexbuffer.h"
 #include "dx8wrapper.h"
@@ -246,8 +247,8 @@ void DynamicMeshModel::Render(RenderInfoClass & /*rinfo*/)
 	/*
 	** Set vertex and index buffers
 	*/
-	DX8Wrapper::Set_Vertex_Buffer(dynamic_vb);
-	DX8Wrapper::Set_Index_Buffer(dynamic_ib,0);
+	WW3D::Backend->DX8_Set_Vertex_Buffer(dynamic_vb);
+	WW3D::Backend->DX8_Set_Index_Buffer(dynamic_ib,0);
 
 	/*
 	** Draw dynamesh, one pass at a time
@@ -299,26 +300,26 @@ void DynamicMeshModel::Render(RenderInfoClass & /*rinfo*/)
 
 		// Set the DX8 state to the first triangle's state
 		if (texture_array0) {
-			DX8Wrapper::Set_Texture(0,texture_array0[0]);
+			WW3D::Backend->DX8_Set_Texture(0,texture_array0[0]);
 		} else {
-			DX8Wrapper::Set_Texture(0,MatDesc->Peek_Single_Texture(pass, 0));
+			WW3D::Backend->DX8_Set_Texture(0,MatDesc->Peek_Single_Texture(pass, 0));
 		}
 
 		if (texture_array1) {
-			DX8Wrapper::Set_Texture(1,texture_array1[0]);
+			WW3D::Backend->DX8_Set_Texture(1,texture_array1[0]);
 		} else {
-			DX8Wrapper::Set_Texture(1,MatDesc->Peek_Single_Texture(pass, 1));
+			WW3D::Backend->DX8_Set_Texture(1,MatDesc->Peek_Single_Texture(pass, 1));
 		}
 
 		if (material_array) {
-			DX8Wrapper::Set_Material(material_array[tris[0].I]);
+			WW3D::Backend->DX8_Set_Material(material_array[tris[0].I]);
 		} else {
-			DX8Wrapper::Set_Material(MatDesc->Peek_Single_Material(pass));
+			WW3D::Backend->DX8_Set_Material(MatDesc->Peek_Single_Material(pass));
 		}
 		if (shader_array) {
-			DX8Wrapper::Set_Shader(shader_array[0]);
+			WW3D::Backend->DX8_Set_Shader(shader_array[0]);
 		} else {
-			DX8Wrapper::Set_Shader(MatDesc->Get_Single_Shader(pass));
+			WW3D::Backend->DX8_Set_Shader(MatDesc->Get_Single_Shader(pass));
 		}
 
 		SphereClass sphere(Vector3(0.0f,0.0f,0.0f),0.0f);
@@ -330,7 +331,7 @@ void DynamicMeshModel::Render(RenderInfoClass & /*rinfo*/)
 				SortingRendererClass::Insert_Triangles(sphere,0, DynamicMeshPNum, 0, DynamicMeshVNum);
 			}
 			else {
-				DX8Wrapper::Draw_Triangles(0, DynamicMeshPNum, 0, DynamicMeshVNum);
+				WW3D::Backend->DX8_Draw_Triangles(0, DynamicMeshPNum, 0, DynamicMeshVNum);
 			}
 			continue;
 		}
@@ -370,7 +371,7 @@ void DynamicMeshModel::Render(RenderInfoClass & /*rinfo*/)
 						1 + max_vert_idx - min_vert_idx);
 				}
 				else {
-					DX8Wrapper::Draw_Triangles(
+					WW3D::Backend->DX8_Draw_Triangles(
 						(start_tri_idx * 3),
 						(1 + cur_tri_idx - start_tri_idx),
 						min_vert_idx,
@@ -379,10 +380,10 @@ void DynamicMeshModel::Render(RenderInfoClass & /*rinfo*/)
 				start_tri_idx = next_tri_idx;
 				min_vert_idx = DynamicMeshVNum - 1;
 				max_vert_idx = 0;
-				if (texture_changed) DX8Wrapper::Set_Texture(0,texture_array0[next_tri_idx]);
-				if (texture1_changed) DX8Wrapper::Set_Texture(1,texture_array1[next_tri_idx]);
-				if (material_changed) DX8Wrapper::Set_Material(material_array[tris[next_tri_idx].I]);
-				if (shader_changed) DX8Wrapper::Set_Shader(shader_array[next_tri_idx]);
+				if (texture_changed) WW3D::Backend->DX8_Set_Texture(0,texture_array0[next_tri_idx]);
+				if (texture1_changed) WW3D::Backend->DX8_Set_Texture(1,texture_array1[next_tri_idx]);
+				if (material_changed) WW3D::Backend->DX8_Set_Material(material_array[tris[next_tri_idx].I]);
+				if (shader_changed) WW3D::Backend->DX8_Set_Shader(shader_array[next_tri_idx]);
 			}
 
 			cur_tri_idx = next_tri_idx;
@@ -428,7 +429,7 @@ void DynamicMeshClass::Render(RenderInfoClass & rinfo)
 		const FrustumClass & frustum = rinfo.Camera.Get_Frustum();
 
 		if (CollisionMath::Overlap_Test(frustum, Get_Bounding_Box()) != CollisionMath::OUTSIDE) {
-			DX8Wrapper::Set_Transform(D3DTS_WORLD, Transform);
+			WW3D::Backend->DX8_Set_Transform(D3DTS_WORLD, Transform);
 			Model->Render(rinfo);
 		}
 	}
@@ -459,7 +460,7 @@ bool DynamicMeshClass::End_Vertex()
 //			color->Z = CurVertexColor[color_array_index].Z;
 //			color->W = CurVertexColor[color_array_index].W;
 			unsigned * color = &((Model->Get_Color_Array(color_array_index))[VertCount]);
-			*color=DX8Wrapper::Convert_Color_Clamp(CurVertexColor[color_array_index]);
+			*color=WW3D::Backend->DX8_Convert_Color(CurVertexColor[color_array_index]);
 		}
 	}
 

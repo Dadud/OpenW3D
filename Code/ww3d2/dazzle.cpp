@@ -388,7 +388,7 @@ void LensflareTypeClass::Generate_Vertex_Buffers(
 		if (col[0]>1.0f) col[0]=1.0f;
 		if (col[1]>1.0f) col[1]=1.0f;
 		if (col[2]>1.0f) col[2]=1.0f;
-		unsigned color=DX8Wrapper::Convert_Color(col,1.0f);
+		unsigned color=WW3D::Backend->DX8_Convert_Color(col,1.0f);
 
 		vertex->x=x+ix;
 		vertex->y=y-iy;
@@ -899,7 +899,7 @@ void DazzleRenderObjClass::Render(RenderInfoClass & rinfo)
 
 	if (	Is_Not_Hidden_At_All() &&
 			_dazzle_rendering_enabled &&
-			!DX8Wrapper::Is_Render_To_Texture()	)
+			!WW3D::Backend->DX8_Is_Render_To_Texture()	)
 	{
 		// First check if the dazzle is blinking and is "off"
 		bool is_on = true;
@@ -924,8 +924,8 @@ void DazzleRenderObjClass::Render(RenderInfoClass & rinfo)
 //			visibility = _VisibilityHandler->Compute_Dazzle_Visibility(rinfo,this,position);
 
 			Matrix4 view_transform,projection_transform;
-			DX8Wrapper::Get_Transform(D3DTS_VIEW,view_transform);
-			DX8Wrapper::Get_Transform(D3DTS_PROJECTION,projection_transform);
+			WW3D::Backend->DX8_Get_Transform(D3DTS_VIEW,view_transform);
+			WW3D::Backend->DX8_Get_Transform(D3DTS_PROJECTION,projection_transform);
 			Vector3 camera_loc(rinfo.Camera.Get_Position());
 			Vector3 camera_dir(-view_transform[2][0],-view_transform[2][1],-view_transform[2][2]);
 //			Matrix3D cam(rinfo.Camera.Get_Transform());
@@ -1004,9 +1004,9 @@ void DazzleRenderObjClass::Render_Dazzle(CameraClass* camera)
 	Matrix4 view_transform;
 	Matrix4 world_transform;
 	Matrix4 projection_transform;
-	DX8Wrapper::Get_Transform(D3DTS_VIEW,view_transform);
-	DX8Wrapper::Get_Transform(D3DTS_WORLD,world_transform);
-	DX8Wrapper::Get_Transform(D3DTS_PROJECTION,projection_transform);
+	WW3D::Backend->DX8_Get_Transform(D3DTS_VIEW,view_transform);
+	WW3D::Backend->DX8_Get_Transform(D3DTS_WORLD,world_transform);
+	WW3D::Backend->DX8_Get_Transform(D3DTS_PROJECTION,projection_transform);
 	old_view_transform=view_transform;
 	old_world_transform=world_transform;
 	old_projection_transform=projection_transform;
@@ -1081,7 +1081,7 @@ void DazzleRenderObjClass::Render_Dazzle(CameraClass* camera)
 			if (col[1]>1.0f) col[1]=1.0f;
 			if (col[2]>1.0f) col[2]=1.0f;
 
-			unsigned color=DX8Wrapper::Convert_Color(col,1.0f);
+			unsigned color=WW3D::Backend->DX8_Convert_Color(col,1.0f);
 
 			dl=current_vloc+(dazzle_dxt-dazzle_dyt)*current_dazzle_size;
 			reinterpret_cast<Vector3&>(vertex->x)=dl;
@@ -1124,7 +1124,7 @@ void DazzleRenderObjClass::Render_Dazzle(CameraClass* camera)
 			if (col[1]>1.0f) col[1]=1.0f;
 			if (col[2]>1.0f) col[2]=1.0f;
 
-			unsigned color=DX8Wrapper::Convert_Color(col,1.0f);
+			unsigned color=WW3D::Backend->DX8_Convert_Color(col,1.0f);
 
 			dl=current_vloc+(halo_dxt-halo_dyt)*halo_size;
 			reinterpret_cast<Vector3&>(vertex->x)=dl;
@@ -1177,7 +1177,7 @@ void DazzleRenderObjClass::Render_Dazzle(CameraClass* camera)
 		return;
 	}
 
-	DX8Wrapper::Set_Vertex_Buffer(vb_access);
+	WW3D::Backend->DX8_Set_Vertex_Buffer(vb_access);
 
 	DynamicIBAccessClass ib_access(BUFFER_TYPE_DYNAMIC_DX8,poly_count*3);
 	{
@@ -1195,38 +1195,38 @@ void DazzleRenderObjClass::Render_Dazzle(CameraClass* camera)
 		}
 	}
 
-	DX8Wrapper::Set_World_Identity();
-	DX8Wrapper::Set_View_Identity();
-	DX8Wrapper::Set_Transform(D3DTS_PROJECTION,Matrix4(true));
+	WW3D::Backend->DX8_Set_World_Identity();
+	WW3D::Backend->DX8_Set_View_Identity();
+	WW3D::Backend->DX8_Set_Transform(D3DTS_PROJECTION,Matrix4(true));
 
 	if (halo_poly_count) {
-		DX8Wrapper::Set_Index_Buffer(ib_access,dazzle_vertex_count);
-		DX8Wrapper::Set_Shader(default_halo_shader);
-		DX8Wrapper::Set_Texture(0,types[type]->Get_Halo_Texture());
+		WW3D::Backend->DX8_Set_Index_Buffer(ib_access,dazzle_vertex_count);
+		WW3D::Backend->DX8_Set_Shader(default_halo_shader);
+		WW3D::Backend->DX8_Set_Texture(0,types[type]->Get_Halo_Texture());
 		SphereClass sphere(Get_Position(),0.1f);
 
-		DX8Wrapper::Draw_Triangles(0,halo_poly_count,0,vertex_count);
+		WW3D::Backend->DX8_Draw_Triangles(0,halo_poly_count,0,vertex_count);
 	}
 
 	if (dazzle_poly_count) {
-		DX8Wrapper::Set_Index_Buffer(ib_access,0);
-		DX8Wrapper::Set_Shader(default_dazzle_shader);
-		DX8Wrapper::Set_Texture(0,types[type]->Get_Dazzle_Texture());
+		WW3D::Backend->DX8_Set_Index_Buffer(ib_access,0);
+		WW3D::Backend->DX8_Set_Shader(default_dazzle_shader);
+		WW3D::Backend->DX8_Set_Texture(0,types[type]->Get_Dazzle_Texture());
 		SphereClass sphere(Vector3(0.0f,0.0f,0.0f),0.0f);
-		DX8Wrapper::Draw_Triangles(0,dazzle_poly_count,0,vertex_count);
+		WW3D::Backend->DX8_Draw_Triangles(0,dazzle_poly_count,0,vertex_count);
 	}
 
 	if (lensflare_poly_count) {
-		DX8Wrapper::Set_Index_Buffer(ib_access,dazzle_vertex_count+halo_vertex_count);
-		DX8Wrapper::Set_Shader(default_dazzle_shader);
-		DX8Wrapper::Set_Texture(0,lensflare->Get_Texture());
+		WW3D::Backend->DX8_Set_Index_Buffer(ib_access,dazzle_vertex_count+halo_vertex_count);
+		WW3D::Backend->DX8_Set_Shader(default_dazzle_shader);
+		WW3D::Backend->DX8_Set_Texture(0,lensflare->Get_Texture());
 		SphereClass sphere(Vector3(0.0f,0.0f,0.0f),0.0f);
-		DX8Wrapper::Draw_Triangles(0,lensflare_poly_count,0,vertex_count);
+		WW3D::Backend->DX8_Draw_Triangles(0,lensflare_poly_count,0,vertex_count);
 	}
 
-	DX8Wrapper::Set_Transform(D3DTS_PROJECTION,old_projection_transform);
-	DX8Wrapper::Set_Transform(D3DTS_VIEW,old_view_transform);
-	DX8Wrapper::Set_Transform(D3DTS_WORLD,old_world_transform);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_PROJECTION,old_projection_transform);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_VIEW,old_view_transform);
+	WW3D::Backend->DX8_Set_Transform(D3DTS_WORLD,old_world_transform);
 }
 
 // ----------------------------------------------------------------------------
@@ -1559,7 +1559,7 @@ void DazzleLayerClass::Render(CameraClass* camera)
 	unsigned time_ms=WW3D::Get_Frame_Time();
 	if (time_ms==0) time_ms=1;
 
-	DX8Wrapper::Set_Material(NULL);
+	WW3D::Backend->DX8_Set_Material(NULL);
 
 	for (unsigned type=0;type<type_count;++type) {
 		if (!types[type]) continue;

@@ -282,6 +282,9 @@ public:
 	static bool					Is_Snapshot_Activated()						{ return SnapshotActivated; }
 	static void					Activate_Snapshot(bool b)					{ SnapshotActivated=b; }
 
+	// Backend accessor for DX12 migration
+	static WW3DBackend *		Get_Backend()							{ return Backend; }
+
 	// These clock all the time under user control, and are used to update
    // Stats.UserStat* when performance sampling is enabled.
    static int             UserStat0;
