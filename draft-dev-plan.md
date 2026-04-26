@@ -1,5 +1,5 @@
 # OpenW3D Renderer Backend Development Plan
-### Status: Core Phases Complete — Further Work Deferred
+### Status: Phase 7 (DX12) In Progress
 
 ---
 
@@ -12,85 +12,93 @@
 | R2 | `WW3DBackend: add Render_Device enumeration API` | ✅ Done |
 | R3 | `ww3d.cpp: route device enumeration through backend` | ✅ Done |
 
-**Result:** `develop-rebased` commit `b29f62b5`
-
 ---
 
 ### Phase 2 — Swapchain & Presentation Abstraction ✅
 | PR | Title | Status |
 |----|-------|--------|
-| S1 | `ww3dbackend.h: add PresentationDescriptor struct` | ✅ Done |
-| S2 | `WW3DBackend: add Create_Swapchain(), Present() methods` | ✅ Done |
-| S3 | `ww3d.cpp: route presentation through backend` | ✅ Done |
-| S4 | `DX8Backend: implement swapchain via DX8` | ✅ Done |
-| S5 | `NullBackend: stub swapchain` | ✅ Done |
-
-**Result:** `develop-rebased` commit `7e7766b2`
+| S1-S5 | All swapchain/presentation methods | ✅ Done |
 
 ---
 
 ### Phase 3 — Viewport & Render Target Abstraction ✅
 | PR | Title | Status |
 |----|-------|--------|
-| V1 | `ww3dbackend.h: add ViewportDesc struct` | ✅ Done |
-| V2 | `WW3DBackend: add Set_Render_Target(), Set_Viewport()` | ✅ Done |
-| V3 | `DX8Backend: implement via DX8` | ✅ Done |
-| V4 | `NullBackend: stub` | ✅ Done |
-
-**Result:** `develop-rebased` commit `376e77bc`
+| V1-V4 | ViewportDesc + Set_Render_Target | ✅ Done |
 
 ---
 
-### Phase 5 — Texture & Surface Abstraction (Partial) ✅ T1
+### Phase 5 — Texture & Surface Abstraction (Partial) ✅
 | PR | Title | Status |
 |----|-------|--------|
-| T1 | `BackendSurfaceHandle` for screenshot/movie capture | ✅ Done |
-| T2 | `Create_Texture()`, `Blt_Fast()` | ⏳ Deferred |
-| T3 | Remove `IDirect3D*` from public headers | ⏳ Deferred |
+| T1 | BackendSurfaceHandle for screenshot/movie | ✅ Done |
+| T2-T3 | Create_Texture, Blt_Fast, header cleanup | ⏳ Deferred |
 
-**Result:** `develop-rebased` commit `9a5e4803`
+---
+
+## In Progress
+
+### Phase 7 — DX12 Backend 🔄
+| Component | Status | Notes |
+|-----------|--------|-------|
+| WW3DBackend interface (all 37 methods) | ✅ Done | |
+| Device enumeration | ✅ Done | |
+| Swap chain creation/resize | ✅ Done | |
+| Command queue/allocator/list | ✅ Done | |
+| Begin_Scene / End_Scene / Present | ✅ Done | |
+| Clear (color) | ✅ Done | |
+| Set_Viewport | ✅ Done | |
+| Set_Render_Target | ✅ Done | |
+| Set_DX8_Render_State | ✅ Stub | DX8→DX12 state translation deferred |
+| Pipeline State Objects (PSO) | ⏳ TODO | Needed before drawing |
+| Descriptor heaps (SRV/DSV) | ⏳ TODO | Needed for textures and depth |
+| Texture/Surface creation | ⏳ TODO | Create_Texture, Blt_Fast |
+| Depth/stencil view | ⏳ TODO | Clear depth requires DSV |
+| Screenshot/Movie capture | ⏳ TODO | Lock_Front_Buffer needs staging resource |
+
+---
+
+### Phase 8 — Vulkan Backend ⏳
+Not started.
 
 ---
 
 ## Deferred / Not Started
 
-| Phase | Description | Blocking |
-|-------|-------------|----------|
-| Phase 4 | `RenderStateBlock` — D3D state translation | DX12/Vulkan need real implementations |
-| Phase 5 T2-T3 | Texture creation, surface blit, header cleanup | Lower priority |
-| Phase 6 | Shader/material abstraction (`BackendShaderHandle`, `Compile_Shader`) | Only needed for shader hot-reload |
-| Phase 7 | Real DX12 backend | Blocked on Phases 4-6 |
-| Phase 8 | Real Vulkan backend | Blocked on Phases 4-6 |
+| Phase | Description |
+|-------|-------------|
+| Phase 4 | `RenderStateBlock` — DX8→DX12/Vulkan state translation |
+| Phase 5 T2-T3 | Texture creation, surface blit, D3D header removal |
+| Phase 6 | Shader/material abstraction (`BackendShaderHandle`, `Compile_Shader`) |
 
 ---
 
-## What Was Achieved
+## Build Notes
 
-The `develop-rebased` branch now has a clean `WW3DBackend` interface with:
-- Device enumeration through backend (Phase 1)
-- Swapchain/presentation abstraction (Phase 2)
-- Viewport and render target routing (Phase 3)
-- Backend-agnostic surface handles for screenshot/movie capture (Phase 5 T1)
-- Community contribution copyright notices on all new files
-- Linux build fixes for `_MAX_FNAME`, `_splitpath`, `HANDLE` typedef
+**DX12 backend** (`ENABLE_DX12_BACKEND`):
+- CMake option: `ENABLE_DX12_BACKEND=ON` (Windows only)
+- Preprocessor: `WW3D_DX12_BACKEND`
+- Requires Windows SDK (d3d12.h, dxgi.h)
+- Committed to `develop-rebased` as `b3d26ddb`
 
-**Key win:** `ww3d.cpp` no longer calls `DX8Wrapper` directly for device enumeration, viewport/render-target setup, or screenshot/movie capture. Call sites go through `Backend->`.
+**Vulkan backend** (`ENABLE_VULKAN_BACKEND`):
+- CMake option: `ENABLE_VULKAN_BACKEND=ON` (all platforms)
+- Preprocessor: `WW3D_VULKAN_BACKEND`
+- Requires Vulkan SDK
 
 ---
 
-## Git Log (develop-rebased)
+## Git Log (develop-rebased, recent)
 
 ```
+b3d26ddb feat(render): add DX12 backend skeleton (Phase 7 initial)
+e177e70c fix(vulkanbackend): add missing virtual keyword to Create_Swapchain override
+7feacfea docs: update plan - core phases complete, further work deferred
 7e7766b2 fix(render Phase 2 S4): DX8Backend actually stores and manages swapchain
-9a5e4803 feat(render Phase 5 T1): BackendSurfaceHandle abstraction for screenshot/movie capture
-376e77bc feat(render Phase 3): add ViewportDesc and Set_Render_Target to WW3DBackend
-eb78b2d9 feat(render): add Create_Swapchain to WW3DBackend interface (Phase 2 S1-S2)
+9a5e4803 feat(render Phase 5 T1): BackendSurfaceHandle abstraction
+376e77bc feat(render Phase 3): add ViewportDesc and Set_Render_Target
+eb78b2d9 feat(render): add Create_Swapchain... (Phase 2 S1-S2)
 941a8fa6 fix(headers): replace EA copyright with community contribution notice
-f14b56ee fix(linux): add _lrotl alias and guard LaunchWeb.cpp on non-Windows
-be071148 fix(linux): replace OutputDebugStringA #ifdef blocks with WWDEBUG_SAY
-2639cf90 feat(linux): add Linux stubs for Win32 API types and exception handling
-25200510 feat(render/vulkan): implement Vulkan backend with instance, device, surface, and swapchain
-b2674966 fix(linux): guard Win32-only build paths
 ```
 
 ---
