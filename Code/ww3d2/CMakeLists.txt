@@ -4,8 +4,15 @@ add_feature_info(DX9_Renderer ENABLE_DX9_BACKEND "DX9 Backend")
 option(ENABLE_VULKAN_BACKEND "Enable Vulkan backend" ON)
 add_feature_info(Vulkan_Renderer ENABLE_VULKAN_BACKEND "Vulkan Backend")
 
+option(ENABLE_DX12_BACKEND "Enable DX12 backend" $<BOOL:${WIN32}>)
+add_feature_info(DX12_Renderer ENABLE_DX12_BACKEND "DX12 Backend")
+
 if (ENABLE_VULKAN_BACKEND)
     find_package(Vulkan REQUIRED)
+endif()
+
+if (ENABLE_DX12_BACKEND)
+    find_package(D3D12)
 endif()
 
 set_source_files_properties(nullbackend.cpp PROPERTIES COMPILE_DEFINITIONS WW3D_RDDESC_NO_D3D)
@@ -13,6 +20,10 @@ set_source_files_properties(nullbackend.cpp PROPERTIES COMPILE_DEFINITIONS WW3D_
 # Vulkan backend also needs WW3D_RDDESC_NO_D3D to avoid D3D header conflicts
 if (ENABLE_VULKAN_BACKEND)
     set_source_files_properties(backends/vulkan/vulkanbackend.cpp PROPERTIES COMPILE_DEFINITIONS WW3D_RDDESC_NO_D3D)
+endif()
+
+if (ENABLE_DX12_BACKEND)
+    set_source_files_properties(backends/dx12/dx12backend.cpp PROPERTIES COMPILE_DEFINITIONS WW3D_RDDESC_NO_D3D)
 endif()
 
 # Set source files
@@ -254,6 +265,9 @@ target_sources(ww3d2 PRIVATE ${WW3D2_SRC})
 if (ENABLE_DX9_BACKEND)
     target_sources(ww3d2 PRIVATE dx8backend.cpp)
     target_compile_definitions(ww3d2 PRIVATE WW3D_DX9_BACKEND)
+elseif (ENABLE_DX12_BACKEND)
+    target_sources(ww3d2 PRIVATE backends/dx12/dx12backend.cpp)
+    target_compile_definitions(ww3d2 PRIVATE WW3D_DX12_BACKEND)
 elseif (ENABLE_VULKAN_BACKEND)
     target_sources(ww3d2 PRIVATE backends/vulkan/vulkanbackend.cpp)
     target_compile_definitions(ww3d2 PRIVATE WW3D_VULKAN_BACKEND)
@@ -280,6 +294,9 @@ if (W3D_TOOLS)
     if (ENABLE_DX9_BACKEND)
         target_sources(ww3d2e PRIVATE dx8backend.cpp)
         target_compile_definitions(ww3d2e PRIVATE WW3D_DX9_BACKEND)
+    elseif (ENABLE_DX12_BACKEND)
+        target_sources(ww3d2e PRIVATE backends/dx12/dx12backend.cpp)
+        target_compile_definitions(ww3d2e PRIVATE WW3D_DX12_BACKEND)
     elseif (ENABLE_VULKAN_BACKEND)
         target_sources(ww3d2e PRIVATE backends/vulkan/vulkanbackend.cpp)
         target_compile_definitions(ww3d2e PRIVATE WW3D_VULKAN_BACKEND)

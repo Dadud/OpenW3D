@@ -118,6 +118,8 @@
 
 #if defined(WW3D_DX9_BACKEND)
 #include "dx8backend.h"
+#elif defined(WW3D_DX12_BACKEND)
+#include "backends/dx12/dx12backend.h"
 #else
 #include "nullbackend.h"
 #endif
@@ -233,6 +235,8 @@ static WW3DBackend *Create_WW3D_Backend()
 {
 #if defined(WW3D_DX9_BACKEND)
 	return new DX8Backend();
+#elif defined(WW3D_DX12_BACKEND)
+	return new DX12Backend();
 #else
 	return new NullBackend();
 #endif
