@@ -100,6 +100,7 @@ private:
     void* m_fence;
     void* m_srv_heap;
     void* m_dsv_heap;
+    void* m_depthStencil;
 
     void* m_hwnd;
     int m_width;
@@ -121,11 +122,28 @@ private:
     unsigned long long m_fence_value;
     void* m_fence_event;
 
+    // DX8 render state storage
+    unsigned int m_dx8_fill_mode;    // D3DFILL_*
+    unsigned int m_dx8_cull_mode;    // D3DCULL_*
+    unsigned int m_dx8_zenable;      // D3DZB_*
+    unsigned int m_dx8_fill_solid;   // current fill mode override
+    bool m_state_dirty;              // if true, PSO needs rebuilding
+    bool Rebuild_PSO_From_State();   // rebuild PSO with current state
+
+    void* m_pipeline_state;
+    void* m_staging_texture;  // ID3D12Resource for readback
+    int m_staging_width;
+    int m_staging_height;
+    bool Create_Staging_Texture(int width, int height);
+    bool Copy_To_Staging(int width, int height);
+
     bool Create_DX12_Device(void* adapter);
+    bool Create_Default_PSO();
     bool Create_Command_Objects();
     bool Create_Swap_Chain_Buffers();
     bool Create_Descriptor_Heaps();
     bool Create_Default_Render_Target();
+    bool Create_DepthStencil();
     void Wait_for_GPU();
     void MoveToNextFrame();
     void Bind_Texture(unsigned int slot, void* texture);

@@ -76,6 +76,7 @@ DX12Backend::DX12Backend() :
     m_command_allocator(nullptr),
     m_command_list(nullptr),
     m_fence(nullptr),
+    m_pipeline_state(nullptr),
     m_srv_heap(nullptr),
     m_dsv_heap(nullptr),
     m_hwnd(nullptr),
@@ -94,9 +95,11 @@ DX12Backend::DX12Backend() :
     m_srv_descriptor_size(0),
     m_dsv_descriptor_size(0),
     m_fence_value(0),
-    m_fence_event(nullptr)
+    m_fence_event(nullptr),
+    m_staging_texture(nullptr),
+    m_staging_width(0),
+    m_staging_height(0)
 {
-    // Initialize bound textures array
     for (unsigned int i = 0; i < 8; i++) {
         m_bound_textures[i] = nullptr;
     }
@@ -123,6 +126,7 @@ void DX12Backend::Shutdown()
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_rtv_heap));
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_srv_heap));
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_dsv_heap));
+    SafeRelease(reinterpret_cast<ID3D12PipelineState**>(&m_pipeline_state));
     SafeRelease(reinterpret_cast<ID3D12CommandList**>(&m_command_list));
     SafeRelease(reinterpret_cast<ID3D12CommandAllocator**>(&m_command_allocator));
     SafeRelease(reinterpret_cast<ID3D12Fence**>(&m_fence));
@@ -223,6 +227,11 @@ bool DX12Backend::Init(void * hwnd, bool /*lite*/)
     // Get RTV descriptor size
     m_rtv_descriptor_size = static_cast<ID3D12Device*>(m_device)->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_RTV);
 
+    // Create descriptor heaps (SRV and DSV)
+    if (!Create_Descriptor_Heaps()) {
+        return false;
+    }
+
     // Create swap chain
     if (!Create_Swapchain(m_width, m_height)) {
         return false;
@@ -230,6 +239,11 @@ bool DX12Backend::Init(void * hwnd, bool /*lite*/)
 
     // Create default render target view for the swap chain back buffer
     if (!Create_Default_Render_Target()) {
+        return false;
+    }
+
+    // Create default PSO
+    if (!Create_Default_PSO()) {
         return false;
     }
 
@@ -335,6 +349,7 @@ bool DX12Backend::Create_Swapchain(int width, int height)
     // Release existing swap chain
     SafeRelease(reinterpret_cast<IDXGISwapChain**>(&m_swap_chain));
     SafeRelease(reinterpret_cast<ID3D12DescriptorHeap**>(&m_rtv_heap));
+    SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_staging_texture));
 
     DXGI_SWAP_CHAIN_DESC1 swap_desc = {};
     swap_desc.Width = width > 0 ? width : DEFAULT_WIDTH;
@@ -424,6 +439,92 @@ bool DX12Backend::Create_Default_Render_Target()
 }
 
 /************************************************************************************************
+ * DX12Backend::Create_Default_PSO -- Create a minimal pass-through graphics PSO                *
+ ************************************************************************************************/
+bool DX12Backend::Create_Default_PSO()
+{
+    if (!m_device) return false;
+
+    SafeRelease(reinterpret_cast<ID3D12PipelineState**>(&m_pipeline_state));
+
+    // Describe a simple pass-through pipeline
+    D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = {};
+
+    // Root signature - null for now (will be set properly when shaders are added)
+    pso_desc.pRootSignature = nullptr;
+
+    // Vertex shader - passthrough (or null)
+    pso_desc.VS.pShaderBytecode = nullptr;
+    pso_desc.VS.BytecodeLength = 0;
+
+    // Pixel shader - null (no shading)
+    pso_desc.PS.pShaderBytecode = nullptr;
+    pso_desc.PS.BytecodeLength = 0;
+
+    // Rasterizer state
+    pso_desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+    pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    pso_desc.RasterizerState.FrontCounterClockwise = FALSE;
+    pso_desc.RasterizerState.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
+    pso_desc.RasterizerState.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
+    pso_desc.RasterizerState.SlopeScaledDepthBias = D3D12_DEFAULT_SLOPE_SCALED_DEPTH_BIAS;
+    pso_desc.RasterizerState.DepthClipEnable = TRUE;
+    pso_desc.RasterizerState.MultisampleEnable = FALSE;
+    pso_desc.RasterizerState.AntialiasedLineEnable = FALSE;
+    pso_desc.RasterizerState.ForcedSampleCount = 0;
+    pso_desc.RasterizerState.ConservativeRaster = D3D12_CONSERVATIVE_RASTERIZATION_MODE_OFF;
+
+    // Blend state - no blending
+    pso_desc.BlendState.AlphaToCoverageEnable = FALSE;
+    pso_desc.BlendState.IndependentBlendEnable = FALSE;
+    for (unsigned i = 0; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++) {
+        pso_desc.BlendState.RenderTarget[i].BlendEnable = FALSE;
+        pso_desc.BlendState.RenderTarget[i].LogicOpEnable = FALSE;
+        pso_desc.BlendState.RenderTarget[i].LogicOp = D3D12_LOGIC_OP_NOOP;
+        pso_desc.BlendState.RenderTarget[i].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
+    }
+
+    // Depth stencil state
+    pso_desc.DepthStencilState.DepthEnable = TRUE;
+    pso_desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    pso_desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
+    pso_desc.DepthStencilState.StencilEnable = FALSE;
+    pso_desc.DepthStencilState.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
+    pso_desc.DepthStencilState.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
+
+    // Input layout - none (null vertex buffer)
+    pso_desc.InputLayout.pInputElements = nullptr;
+    pso_desc.InputLayout.NumElements = 0;
+
+    // Primitive topology
+    pso_desc.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
+
+    // Render target formats
+    pso_desc.NumRenderTargets = 1;
+    pso_desc.RTVFormats[0] = DXGI_FORMAT_R8G8B8A8_UNORM;
+    for (unsigned i = 1; i < D3D12_SIMULTANEOUS_RENDER_TARGET_COUNT; i++) {
+        pso_desc.RTVFormats[i] = DXGI_FORMAT_UNKNOWN;
+    }
+
+    // Depth stencil format
+    pso_desc.DSVFormat = DXGI_FORMAT_D24_UNORM_S8_UINT;
+
+    // Sample desc
+    pso_desc.SampleDesc.Count = 1;
+    pso_desc.SampleDesc.Quality = 0;
+    pso_desc.SampleMask = UINT_MAX;
+
+    HRESULT hr = static_cast<ID3D12Device*>(m_device)->CreateGraphicsPipelineState(
+        &pso_desc, IID_PPV_ARGS(reinterpret_cast<ID3D12PipelineState**>(&m_pipeline_state)));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: CreateGraphicsPipelineState failed: %x\n", hr));
+        return false;
+    }
+
+    return true;
+}
+
+/************************************************************************************************
  * DX12Backend::Begin_Scene -- Reset command list and prepare for rendering                     *
  ************************************************************************************************/
 void DX12Backend::Begin_Scene()
@@ -435,8 +536,13 @@ void DX12Backend::Begin_Scene()
     static_cast<ID3D12GraphicsCommandList*>(m_command_list)->Reset(
         static_cast<ID3D12CommandAllocator*>(m_command_allocator), nullptr);
 
-    // Set pipeline state and root signature here when we have them
-    // For now, set render targets
+    // Set pipeline state
+    if (m_pipeline_state) {
+        static_cast<ID3D12GraphicsCommandList*>(m_command_list)->SetPipelineState(
+            reinterpret_cast<ID3D12PipelineState*>(m_pipeline_state));
+    }
+
+    // Set render targets
     if (m_rtv_heap && m_swap_chain) {
         D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = static_cast<ID3D12DescriptorHeap*>(m_rtv_heap)->GetCPUDescriptorHandleForHeapStart();
         static_cast<ID3D12GraphicsCommandList*>(m_command_list)->OMSetRenderTargets(1, &rtv_handle, FALSE, nullptr);
@@ -629,6 +735,123 @@ void DX12Backend::Set_Light_Environment(const void* /*env*/)
 }
 
 /************************************************************************************************
+ * DX12Backend::Create_Staging_Texture -- Create a CPU-readable staging texture for readback    *
+ ************************************************************************************************/
+bool DX12Backend::Create_Staging_Texture(int width, int height)
+{
+    if (!m_device) return false;
+
+    // Release old staging texture if dimensions differ
+    if (m_staging_texture && (m_staging_width != width || m_staging_height != height)) {
+        SafeRelease(reinterpret_cast<ID3D12Resource**>(&m_staging_texture));
+        m_staging_texture = nullptr;
+        m_staging_width = 0;
+        m_staging_height = 0;
+    }
+
+    // Create new staging texture if needed
+    if (!m_staging_texture) {
+        D3D12_RESOURCE_DESC tex_desc = {};
+        tex_desc.Dimension = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+        tex_desc.Width = width;
+        tex_desc.Height = height;
+        tex_desc.DepthOrArraySize = 1;
+        tex_desc.MipLevels = 1;
+        tex_desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+        tex_desc.SampleDesc.Count = 1;
+        tex_desc.Layout = D3D12_TEXTURE_LAYOUT_ROW_MAJOR;
+        tex_desc.Flags = D3D12_RESOURCE_FLAG_NONE;
+
+        D3D12_HEAP_PROPERTIES heap_props = {};
+        heap_props.Type = D3D12_HEAP_TYPE_READBACK;
+        heap_props.CPUPageProperty = D3D12_CPU_PAGE_PROPERTY_UNKNOWN;
+        heap_props.MemoryPoolPreference = D3D12_MEMORY_POOL_UNKNOWN;
+
+        ID3D12Resource* staging = nullptr;
+        HRESULT hr = static_cast<ID3D12Device*>(m_device)->CreateCommittedResource(
+            &heap_props,
+            D3D12_HEAP_FLAG_NONE,
+            &tex_desc,
+            D3D12_RESOURCE_STATE_COPY_DEST,
+            nullptr,
+            IID_PPV_ARGS(&staging));
+        if (FAILED(hr)) {
+            WWDEBUG_SAY(("DX12: CreateCommittedResource (staging) failed: %x\n", hr));
+            return false;
+        }
+        m_staging_texture = staging;
+        m_staging_width = width;
+        m_staging_height = height;
+    }
+    return true;
+}
+
+/************************************************************************************************
+ * DX12Backend::Copy_To_Staging -- Copy the back buffer to the staging texture                  *
+ ************************************************************************************************/
+bool DX12Backend::Copy_To_Staging(int width, int height)
+{
+    if (!m_device || !m_swap_chain || !m_command_list) return false;
+
+    // Ensure staging texture exists with correct size
+    if (!Create_Staging_Texture(width, height)) {
+        return false;
+    }
+
+    // Get current back buffer
+    ID3D12Resource* back_buffer = nullptr;
+    unsigned int idx = static_cast<IDXGISwapChain*>(m_swap_chain)->GetCurrentBackBufferIndex();
+    HRESULT hr = static_cast<IDXGISwapChain*>(m_swap_chain)->GetBuffer(idx, IID_PPV_ARGS(&back_buffer));
+    if (FAILED(hr)) {
+        WWDEBUG_SAY(("DX12: GetBuffer for staging copy failed: %x\n", hr));
+        return false;
+    }
+
+    // Transition back buffer from RENDER_TARGET to COPY_SOURCE
+    D3D12_RESOURCE_BARRIER barrier = {};
+    barrier.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION;
+    barrier.Transition.pResource = back_buffer;
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    barrier.Transition.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES;
+    static_cast<ID3D12GraphicsCommandList*>(m_command_list)->ResourceBarrier(1, &barrier);
+
+    // Copy back buffer to staging texture
+    D3D12_TEXTURE_COPY_LOCATION src = {};
+    src.pResource = back_buffer;
+    src.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    src.SubresourceIndex = 0;
+
+    D3D12_TEXTURE_COPY_LOCATION dst = {};
+    dst.pResource = static_cast<ID3D12Resource*>(m_staging_texture);
+    dst.Type = D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX;
+    dst.SubresourceIndex = 0;
+
+    static_cast<ID3D12GraphicsCommandList*>(m_command_list)->CopyTextureRegion(&dst, 0, 0, 0, &src, nullptr);
+
+    // Transition back buffer back to RENDER_TARGET
+    barrier.Transition.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE;
+    barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET;
+    static_cast<ID3D12GraphicsCommandList*>(m_command_list)->ResourceBarrier(1, &barrier);
+
+    // Execute command list to complete the copy
+    static_cast<ID3D12GraphicsCommandList*>(m_command_list)->Close();
+    ID3D12CommandList* cmd_lists[] = { static_cast<ID3D12GraphicsCommandList*>(m_command_list) };
+    static_cast<ID3D12CommandQueue*>(m_command_queue)->ExecuteCommandLists(1, cmd_lists);
+
+    // Wait for GPU to finish
+    Wait_for_GPU();
+
+    // Reset command list for next frame
+    static_cast<ID3D12CommandAllocator*>(m_command_allocator)->Reset();
+    static_cast<ID3D12GraphicsCommandList*>(m_command_list)->Reset(
+        static_cast<ID3D12CommandAllocator*>(m_command_allocator), nullptr);
+
+    back_buffer->Release();
+    return true;
+}
+
+/************************************************************************************************
  * DX12Backend::Get_Front_Buffer_Surface -- Get the current back buffer as a surface            *
  ************************************************************************************************/
 void DX12Backend::Get_Front_Buffer_Surface(BackendSurfaceHandle* out_handle)
@@ -638,45 +861,43 @@ void DX12Backend::Get_Front_Buffer_Surface(BackendSurfaceHandle* out_handle)
         return;
     }
 
-    // Get the current back buffer
-    ID3D12Resource* buffer = nullptr;
-    unsigned int idx = static_cast<IDXGISwapChain*>(m_swap_chain)->GetCurrentBackBufferIndex();
-    static_cast<IDXGISwapChain*>(m_swap_chain)->GetBuffer(idx, IID_PPV_ARGS(&buffer));
-    
-    if (buffer) {
-        out_handle->D3DSurface = static_cast<IDirect3DSurface9*>(buffer); // Note: this is actually a DX12 resource, not D3D9
-        out_handle->BackendData = buffer;
-    } else {
-        out_handle->D3DSurface = nullptr;
-        out_handle->BackendData = nullptr;
-    }
+    // Copy back buffer to staging texture for CPU readback
+    Copy_To_Staging(m_width, m_height);
+
+    out_handle->BackendData = m_staging_texture;
+    out_handle->D3DSurface = nullptr;
 }
 
 /************************************************************************************************
  * DX12Backend::Lock_Front_Buffer_Surface -- Lock the front buffer for reading                 *
  ************************************************************************************************/
-void DX12Backend::Lock_Front_Buffer_Surface(BackendSurfaceHandle* handle, int width, int height, SurfaceLockData* out_data)
+void DX12Backend::Lock_Front_Buffer_Surface(BackendSurfaceHandle* /*handle*/, int width, int /*height*/, SurfaceLockData* out_data)
 {
     if (!out_data) return;
     out_data->Valid = false;
     out_data->PixelData = nullptr;
     out_data->RowPitch = 0;
 
-    // DX12 doesn't support CPU reading of back buffers directly
-    // Would need to copy to a staging resource - deferred
+    if (!m_staging_texture) return;
+
+    D3D12_RANGE readRange{0, 0}; // Map the whole resource
+    void* pData = nullptr;
+    HRESULT hr = static_cast<ID3D12Resource*>(m_staging_texture)->Map(0, &readRange, &pData);
+    if (FAILED(hr)) return;
+
+    out_data->PixelData = pData;
+    out_data->RowPitch = width * 4; // RGBA
+    out_data->Valid = true;
 }
 
 /************************************************************************************************
  * DX12Backend::Unlock_Front_Buffer_Surface -- Unlock the front buffer                          *
  ************************************************************************************************/
-void DX12Backend::Unlock_Front_Buffer_Surface(BackendSurfaceHandle* handle)
+void DX12Backend::Unlock_Front_Buffer_Surface(BackendSurfaceHandle* /*handle*/)
 {
-    if (handle && handle->BackendData) {
-        // Release the staging resource if one was created
-        static_cast<ID3D12Resource*>(handle->BackendData)->Release();
-        handle->BackendData = nullptr;
+    if (m_staging_texture) {
+        static_cast<ID3D12Resource*>(m_staging_texture)->Unmap(0, nullptr);
     }
-    handle->D3DSurface = nullptr;
 }
 
 //=============================================================================
@@ -785,7 +1006,11 @@ DX12Backend::DX12Backend() :
     m_srv_descriptor_size(0),
     m_dsv_descriptor_size(0),
     m_fence_value(0),
-    m_fence_event(nullptr)
+    m_fence_event(nullptr),
+    m_pipeline_state(nullptr),
+    m_staging_texture(nullptr),
+    m_staging_width(0),
+    m_staging_height(0)
 {
     // Initialize bound textures array
     for (unsigned int i = 0; i < 8; i++) {
@@ -794,8 +1019,13 @@ DX12Backend::DX12Backend() :
 }
 
 DX12Backend::~DX12Backend() { Shutdown(); }
-void DX12Backend::Shutdown() { m_initialized = false; }
+void DX12Backend::Shutdown() {
+    m_pipeline_state = nullptr;
+    m_staging_texture = nullptr;
+    m_initialized = false;
+}
 bool DX12Backend::Create_Descriptor_Heaps() { return false; }
+bool DX12Backend::Create_Default_PSO() { return false; }
 bool DX12Backend::Init(void*, bool) { return false; }
 bool DX12Backend::Set_Any_Render_Device() { return false; }
 bool DX12Backend::Set_Render_Device(const char*, int, int, int, int, bool) { return false; }
@@ -820,6 +1050,8 @@ void DX12Backend::Set_Light_Environment(const void*) {}
 void DX12Backend::Get_Front_Buffer_Surface(BackendSurfaceHandle* h) { if (h) { h->D3DSurface = nullptr; h->BackendData = nullptr; } }
 void DX12Backend::Lock_Front_Buffer_Surface(BackendSurfaceHandle*, int, int, SurfaceLockData* d) { if (d) d->Valid = false; }
 void DX12Backend::Unlock_Front_Buffer_Surface(BackendSurfaceHandle*) {}
+bool DX12Backend::Create_Staging_Texture(int, int) { return false; }
+bool DX12Backend::Copy_To_Staging(int, int) { return false; }
 int DX12Backend::Get_Render_Device_Count() { return 0; }
 int DX12Backend::Get_Render_Device() { return 0; }
 const char* DX12Backend::Get_Render_Device_Name(int) { return "DX12 (unavailable on this platform)"; }
