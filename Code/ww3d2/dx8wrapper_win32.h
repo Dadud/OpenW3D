@@ -1,6 +1,6 @@
 #ifndef DX8_WRAPPER_WIN32_H
 #define DX8_WRAPPER_WIN32_H
-**	Copyright 2025 Electronic Arts Inc.
+/**	Copyright 2025 Electronic Arts Inc.
 **
 **	This program is free software: you can redistribute it and/or modify
 **	it under the terms of the GNU General Public License as published by
