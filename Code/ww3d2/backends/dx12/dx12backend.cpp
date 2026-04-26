@@ -734,7 +734,8 @@ void DX12Backend::Begin_Scene()
     // Set render targets
     if (m_rtv_heap && m_swap_chain) {
         D3D12_CPU_DESCRIPTOR_HANDLE rtv_handle = static_cast<ID3D12DescriptorHeap*>(m_rtv_heap)->GetCPUDescriptorHandleForHeapStart();
-        static_cast<ID3D12GraphicsCommandList*>(m_command_list)->OMSetRenderTargets(1, &rtv_handle, FALSE, nullptr);
+        D3D12_CPU_DESCRIPTOR_HANDLE dsv_handle = static_cast<ID3D12DescriptorHeap*>(m_dsv_heap)->GetCPUDescriptorHandleForHeapStart();
+        static_cast<ID3D12GraphicsCommandList*>(m_command_list)->OMSetRenderTargets(1, &rtv_handle, FALSE, &dsv_handle);
     }
 }
 
@@ -1065,6 +1066,13 @@ void DX12Backend::Draw_Primitive(unsigned int vertex_count, unsigned int start_v
 
     ID3D12GraphicsCommandList* cmd_list = static_cast<ID3D12GraphicsCommandList*>(m_command_list);
 
+    if (m_state_dirty || !m_pipeline_state) {
+        Rebuild_PSO_From_State();
+    }
+    if (m_pipeline_state) {
+        cmd_list->SetPipelineState(reinterpret_cast<ID3D12PipelineState*>(m_pipeline_state));
+    }
+
     // Set vertex buffer
     cmd_list->IASetVertexBuffers(0, 1, &m_vertex_buffer_view);
 
@@ -1083,6 +1091,14 @@ void DX12Backend::Draw_Indexed(unsigned int index_count, unsigned int start_inde
     if (!m_command_list) return;
 
     ID3D12GraphicsCommandList* cmd_list = static_cast<ID3D12GraphicsCommandList*>(m_command_list);
+
+
+    if (m_state_dirty || !m_pipeline_state) {
+        Rebuild_PSO_From_State();
+    }
+    if (m_pipeline_state) {
+        cmd_list->SetPipelineState(reinterpret_cast<ID3D12PipelineState*>(m_pipeline_state));
+    }
 
     // Set index buffer
     cmd_list->IASetIndexBuffer(&m_index_buffer_view);
@@ -1438,7 +1454,8 @@ void DX12Backend::Set_Render_Target(void* target)
     if (target == nullptr) {
         if (m_default_render_target && m_rtv_heap) {
             D3D12_CPU_DESCRIPTOR_HANDLE rtv = static_cast<ID3D12DescriptorHeap*>(m_rtv_heap)->GetCPUDescriptorHandleForHeapStart();
-            static_cast<ID3D12GraphicsCommandList*>(m_command_list)->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+            D3D12_CPU_DESCRIPTOR_HANDLE dsv = static_cast<ID3D12DescriptorHeap*>(m_dsv_heap)->GetCPUDescriptorHandleForHeapStart();
+            static_cast<ID3D12GraphicsCommandList*>(m_command_list)->OMSetRenderTargets(1, &rtv, FALSE, &dsv);
         }
         return;
     }
@@ -1741,6 +1758,7 @@ bool DX12Backend::Set_Device_Resolution(int width, int height, int bits, int win
 
     if (m_initialized) {
         Create_Swapchain(m_width, m_height);
+        Create_DepthStencil();
     }
     return true;
 }
