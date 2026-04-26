@@ -98,7 +98,12 @@ DX12Backend::DX12Backend() :
     m_fence_event(nullptr),
     m_staging_texture(nullptr),
     m_staging_width(0),
-    m_staging_height(0)
+    m_staging_height(0),
+    m_dx8_fill_mode(D3DFILL_SOLID),
+    m_dx8_cull_mode(D3DCULL_NONE),
+    m_dx8_zenable(D3DZB_TRUE),
+    m_dx8_fill_solid(1),
+    m_state_dirty(false)
 {
     for (unsigned int i = 0; i < 8; i++) {
         m_bound_textures[i] = nullptr;
@@ -439,31 +444,55 @@ bool DX12Backend::Create_Default_Render_Target()
 }
 
 /************************************************************************************************
- * DX12Backend::Create_Default_PSO -- Create a minimal pass-through graphics PSO                *
+ * DX12Backend::Rebuild_PSO_From_State -- Rebuild PSO from current DX8 render state           *
  ************************************************************************************************/
-bool DX12Backend::Create_Default_PSO()
+bool DX12Backend::Rebuild_PSO_From_State()
 {
     if (!m_device) return false;
 
     SafeRelease(reinterpret_cast<ID3D12PipelineState**>(&m_pipeline_state));
 
-    // Describe a simple pass-through pipeline
     D3D12_GRAPHICS_PIPELINE_STATE_DESC pso_desc = {};
 
-    // Root signature - null for now (will be set properly when shaders are added)
+    // Root signature
     pso_desc.pRootSignature = nullptr;
 
-    // Vertex shader - passthrough (or null)
+    // Vertex shader - passthrough
     pso_desc.VS.pShaderBytecode = nullptr;
     pso_desc.VS.BytecodeLength = 0;
 
-    // Pixel shader - null (no shading)
+    // Pixel shader - null
     pso_desc.PS.pShaderBytecode = nullptr;
     pso_desc.PS.BytecodeLength = 0;
 
-    // Rasterizer state
-    pso_desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
-    pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+    // Rasterizer state from DX8 render state
+    switch (m_dx8_fill_mode) {
+        case D3DFILL_WIREFRAME:
+            pso_desc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+            break;
+        case D3DFILL_POINT:
+            // DX12 has no POINT fill - fall back to wireframe
+            pso_desc.RasterizerState.FillMode = D3D12_FILL_MODE_WIREFRAME;
+            break;
+        case D3DFILL_SOLID:
+        default:
+            pso_desc.RasterizerState.FillMode = D3D12_FILL_MODE_SOLID;
+            break;
+    }
+
+    switch (m_dx8_cull_mode) {
+        case D3DCULL_FRONT:
+            pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_FRONT;
+            break;
+        case D3DCULL_BACK:
+            pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_BACK;
+            break;
+        case D3DCULL_NONE:
+        default:
+            pso_desc.RasterizerState.CullMode = D3D12_CULL_MODE_NONE;
+            break;
+    }
+
     pso_desc.RasterizerState.FrontCounterClockwise = FALSE;
     pso_desc.RasterizerState.DepthBias = D3D12_DEFAULT_DEPTH_BIAS;
     pso_desc.RasterizerState.DepthBiasClamp = D3D12_DEFAULT_DEPTH_BIAS_CLAMP;
@@ -484,15 +513,24 @@ bool DX12Backend::Create_Default_PSO()
         pso_desc.BlendState.RenderTarget[i].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL;
     }
 
-    // Depth stencil state
-    pso_desc.DepthStencilState.DepthEnable = TRUE;
-    pso_desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+    // Depth stencil state from DX8 z-enable
+    switch (m_dx8_zenable) {
+        case D3DZB_FALSE:
+            pso_desc.DepthStencilState.DepthEnable = FALSE;
+            pso_desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ZERO;
+            break;
+        case D3DZB_TRUE:
+        default:
+            pso_desc.DepthStencilState.DepthEnable = TRUE;
+            pso_desc.DepthStencilState.DepthWriteMask = D3D12_DEPTH_WRITE_MASK_ALL;
+            break;
+    }
     pso_desc.DepthStencilState.DepthFunc = D3D12_COMPARISON_FUNC_LESS;
     pso_desc.DepthStencilState.StencilEnable = FALSE;
     pso_desc.DepthStencilState.StencilReadMask = D3D12_DEFAULT_STENCIL_READ_MASK;
     pso_desc.DepthStencilState.StencilWriteMask = D3D12_DEFAULT_STENCIL_WRITE_MASK;
 
-    // Input layout - none (null vertex buffer)
+    // Input layout - none
     pso_desc.InputLayout.pInputElements = nullptr;
     pso_desc.InputLayout.NumElements = 0;
 
@@ -521,7 +559,17 @@ bool DX12Backend::Create_Default_PSO()
         return false;
     }
 
+    m_state_dirty = false;
     return true;
+}
+
+/************************************************************************************************
+ * DX12Backend::Create_Default_PSO -- Create a minimal pass-through graphics PSO                *
+ ************************************************************************************************/
+bool DX12Backend::Create_Default_PSO()
+{
+    // Use member variables for consistency with Rebuild_PSO_From_State
+    return Rebuild_PSO_From_State();
 }
 
 /************************************************************************************************
@@ -716,14 +764,39 @@ void DX12Backend::Set_Render_Target(void* target)
 }
 
 /************************************************************************************************
- * DX12Backend::Set_DX8_Render_State -- Store render state (DX12 translation deferred)          *
+ * DX12Backend::Set_DX8_Render_State -- Translate DX8 render state to DX12 PSO                *
  ************************************************************************************************/
 void DX12Backend::Set_DX8_Render_State(int state, unsigned value)
 {
-    // DX8 render state to DX12 translation would happen here
-    // For now, just store it for later use when creating pipeline state
-    (void)state;
-    (void)value;
+    switch (state) {
+        case D3DRS_FILLMODE:
+            m_dx8_fill_mode = value;
+            m_state_dirty = true;
+            break;
+        case D3DRS_CULLMODE:
+            m_dx8_cull_mode = value;
+            m_state_dirty = true;
+            break;
+        case D3DRS_ZENABLE:
+            m_dx8_zenable = value;
+            m_state_dirty = true;
+            break;
+        case D3DRS_ZWRITEENABLE:
+            // Depth write enable tracked for future PSO expansion
+            m_state_dirty = true;
+            break;
+        case D3DRS_ALPHABLENDENABLE:
+            // Alpha blend enable tracked for future PSO expansion
+            m_state_dirty = true;
+            break;
+        default:
+            // Ignore unimplemented states
+            break;
+    }
+
+    if (m_state_dirty) {
+        Rebuild_PSO_From_State();
+    }
 }
 
 /************************************************************************************************
@@ -976,6 +1049,48 @@ int DX12Backend::Get_Device_Resolution_Height() { return m_height; }
 #else // !_WIN32
 
 // DX12 is Windows-only - provide stubs for non-Windows builds
+
+// DX8 render state constants (stub values for non-Windows compilation)
+#ifndef D3DFILL_SOLID
+#define D3DFILL_SOLID 3
+#endif
+#ifndef D3DFILL_WIREFRAME
+#define D3DFILL_WIREFRAME 2
+#endif
+#ifndef D3DFILL_POINT
+#define D3DFILL_POINT 1
+#endif
+#ifndef D3DCULL_NONE
+#define D3DCULL_NONE 1
+#endif
+#ifndef D3DCULL_FRONT
+#define D3DCULL_FRONT 2
+#endif
+#ifndef D3DCULL_BACK
+#define D3DCULL_BACK 3
+#endif
+#ifndef D3DZB_TRUE
+#define D3DZB_TRUE 1
+#endif
+#ifndef D3DZB_FALSE
+#define D3DZB_FALSE 0
+#endif
+#ifndef D3DRS_FILLMODE
+#define D3DRS_FILLMODE 8
+#endif
+#ifndef D3DRS_CULLMODE
+#define D3DRS_CULLMODE 3
+#endif
+#ifndef D3DRS_ZENABLE
+#define D3DRS_ZENABLE 7
+#endif
+#ifndef D3DRS_ZWRITEENABLE
+#define D3DRS_ZWRITEENABLE 8
+#endif
+#ifndef D3DRS_ALPHABLENDENABLE
+#define D3DRS_ALPHABLENDENABLE 19
+#endif
+
 struct RenderDeviceDescClass {};
 
 DX12Backend::DX12Backend() :
@@ -1010,7 +1125,12 @@ DX12Backend::DX12Backend() :
     m_pipeline_state(nullptr),
     m_staging_texture(nullptr),
     m_staging_width(0),
-    m_staging_height(0)
+    m_staging_height(0),
+    m_dx8_fill_mode(D3DFILL_SOLID),
+    m_dx8_cull_mode(D3DCULL_NONE),
+    m_dx8_zenable(D3DZB_TRUE),
+    m_dx8_fill_solid(1),
+    m_state_dirty(false)
 {
     // Initialize bound textures array
     for (unsigned int i = 0; i < 8; i++) {
