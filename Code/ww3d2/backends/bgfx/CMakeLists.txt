@@ -1,220 +1,178 @@
-# BGFX Shader Build Rules - CMake integration for shader compilation.
+# BGFX Shader Build Rules
 #
-# This CMakeLists.txt handles:
-#   - Build-time shader compilation using shaderc
-#   - Runtime fallback for loading pre-compiled shaders
-#   - Hot-reload support for development
+# Compiles .sc shader sources to bgfx binary format (.bin) using the shaderc tool
+# from the bgfx submodule. Output goes to ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders/
+# (i.e. build/shaders/ in an out-of-source build).
+#
+# Runtime search paths (ShaderVariantCache.cpp):
+#   ./shaders/, ../shaders/, shaders/, ../../shaders/
+# so the compiled .bin files must be placed next to the executable.
+#
+# Shader naming convention (must match GetRendererSuffix() in ShaderVariantCache.cpp):
+#   vs_mesh_<profile>.bin    — vertex shader for mesh rendering
+#   fs_mesh_<profile>.bin    — fragment shader for mesh rendering
+#   vs_uber_<profile>.bin    — vertex shader for uber shader (shader variants)
+#   fs_uber_<profile>.bin    — fragment shader for uber shader (shader variants)
+#
+# Profile suffixes:
+#   s_5_0  — Direct3D 11 / 12  (Windows)
+#   s_3_0  — Direct3D 9        (Windows legacy)
+#   120    — OpenGL / GLES      (Linux, macOS)
+#   spirv  — Vulkan             (all platforms)
+#   metal  — Metal              (macOS)
+#
+# shaderc CLI (confirmed from bgfx/tools/shaderc/shaderc.cpp):
+#   shaderc -f <in> -o <out> --type <vertex/fragment/compute>
+#             --platform <windows/linux/osx> -p <profile>
+#             --varyingdef <varying.def.sc> -i <include paths>
 
-# Shader compilation setup
 set(BGFX_SHADER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(BGFX_SHADER_SOURCE_DIR "${BGFX_SHADER_DIR}/source")
 set(BGFX_SHADER_EMBED_DIR "${BGFX_SHADER_DIR}/embed")
 set(BGFX_SHADER_VARYING_DEF "${BGFX_SHADER_DIR}/varying.def.sc")
-set(BGFX_SHADER_OUTPUT_DIR "${CMAKE_BINARY_DIR}/shaders")
 
-# Find shaderc compiler
+# Output to the same directory as the runtime executable (build/shaders/)
+set(BGFX_SHADER_OUTPUT_DIR "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/shaders")
+
+# Find shaderc compiler (prefer prebuilt binaries in bgfx submodule)
 find_program(SHADERC_EXECUTABLE
     NAMES shaderc shadercRelease
     PATHS
         "${BGFX_DIR}/.build/linux64_gcc/bin"
         "${BGFX_DIR}/.build/win64_vs2022/bin"
         "${BGFX_DIR}/.build/osx64_clang/bin"
-    DOC "bgfx shader compiler"
-)
-
-if(NOT SHADERC_EXECUTABLE)
-    message(WARNING "shaderc not found. Skipping shader compilation. Shaders must be provided pre-compiled in the output directory.")
-    # Create empty shader output directory so the build doesn't fail
-    file(MAKE_DIRECTORY ${BGFX_SHADER_OUTPUT_DIR})
-    return()
-endif()
-
-# Shader profiles for different renderers
-if(WIN32)
-    set(SHADER_PROFILES
-        "s_5_0"     # Direct3D 11 / 12
-    )
-    set(SHADER_PLATFORM "windows")
-else()
-    set(SHADER_PROFILES
-        "120"       # OpenGL 2.1 / GLES 2.0
-        "spirv"     # Vulkan
-    )
-    set(SHADER_PLATFORM "linux")
-endif()
-
-# Source shaders
-set(SHADER_SOURCES
-    "${BGFX_SHADER_SOURCE_DIR}/vs_mesh.sc"
-    "${BGFX_SHADER_SOURCE_DIR}/fs_mesh.sc"
-)
-
-# Function to compile a shader
-function(compile_bgfx_shader input_file output_file type profile)
-    if(NOT SHADERC_EXECUTABLE)
-        return()
-    endif()
-
-    get_filename_component(filename ${input_file} NAME)
-
-    add_custom_command(
-        OUTPUT ${output_file}
-        COMMAND ${SHADERC_EXECUTABLE}
-            -f ${input_file}
-            -o ${output_file}
-            --type ${type}
-            --platform ${SHADER_PLATFORM}
-            --profile ${profile}
-            --varyingdef ${BGFX_SHADER_VARYING_DEF}
-            -i "${BGFX_SHADER_SOURCE_DIR}"
-            -i "${BGFX_DIR}/src"
-            -i "${BGFX_DIR}/include"
-            -i "${BGFX_DIR}/examples/common"
-        DEPENDS ${input_file} ${BGFX_SHADER_VARYING_DEF}
-        COMMENT "Compiling bgfx shader: ${filename}"
-        VERBATIM
-    )
-endfunction()
-
-# Compile all shaders
-set(COMPILED_SHADERS)
-
-foreach(SHADER_SRC ${SHADER_SOURCES})
-    get_filename_component(SHADER_NAME ${SHADER_SRC} NAME_WE)
-    get_filename_component(SHADER_EXT ${SHADER_SRC} EXT)
-
-    # Determine shader type from extension
-    if(SHADER_EXT STREQUAL ".sc")
-        if(SHADER_NAME MATCHES "^vs_")
-            set(SHADER_TYPE "vertex")
-        elseif(SHADER_NAME MATCHES "^fs_")
-            set(SHADER_TYPE "fragment")
-        elseif(SHADER_NAME MATCHES "^cs_")
-            set(SHADER_TYPE "compute")
-        else()
-            set(SHADER_TYPE "vertex")
-        endif()
-    endif()
-
-    # Compile for each profile
-    foreach(PROFILE ${SHADER_PROFILES})
-        set(OUTPUT_FILE "${BGFX_SHADER_OUTPUT_DIR}/${SHADER_NAME}_${PROFILE}.bin")
-        compile_bgfx_shader(${SHADER_SRC} ${OUTPUT_FILE} ${SHADER_TYPE} ${PROFILE})
-        list(APPEND COMPILED_SHADERS ${OUTPUT_FILE})
-    endforeach()
-endforeach()
-
-# Create shader output directory
-file(MAKE_DIRECTORY ${BGFX_SHADER_OUTPUT_DIR})
-
-# Add custom target for shader compilation (only if shaders were compiled)
-if(COMPILED_SHADERS)
-    add_custom_target(bgfx-shaders ALL DEPENDS ${COMPILED_SHADERS})
-endif()
-
-# Copy embedded shaders if they exist
-if(EXISTS ${BGFX_SHADER_EMBED_DIR})
-    file(GLOB EMBEDDED_SHADERS "${BGFX_SHADER_EMBED_DIR}/*.bin")
-    if(EMBEDDED_SHADERS)
-        foreach(EMBED ${EMBEDDED_SHADERS})
-            get_filename_component(EMBED_NAME ${EMBED} NAME)
-            set(OUTPUT "${BGFX_SHADER_OUTPUT_DIR}/${EMBED_NAME}")
-            add_custom_command(
-                OUTPUT ${OUTPUT}
-                COMMAND ${CMAKE_COMMAND} -E copy ${EMBED} ${OUTPUT}
-                DEPENDS ${EMBED}
-                COMMENT "Copying embedded shader: ${EMBED_NAME}"
-            )
-            list(APPEND COMPILED_SHADERS ${OUTPUT})
-        endforeach()
-    endif()
-endif()
-
-# Export shader directory for use by the main build
-set(BGFX_SHADER_OUTPUT_DIR "${BGFX_SHADER_OUTPUT_DIR}" PARENT_SCOPE)
-
-message(STATUS "BGFX shader output: ${BGFX_SHADER_OUTPUT_DIR}")
-
-# ─────────────────────────────────────────────────────────────────────
-# Uber shader compilation pipeline (vs_uber.sc / fs_uber.sc → D3D11)
-# ─────────────────────────────────────────────────────────────────────
-
-set(UBER_SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/source")
-set(UBER_SHADER_OUTPUT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders/d3d11")
-
-# Find shaderc executable (preferred: prebuilt binaries from bgfx)
-find_program(UBER_SHADERC_EXECUTABLE
-    NAMES shaderc shaderc.exe shadercRelease shadercRelease.exe
-    PATHS
-        "${BGFX_DIR}/tools/bin/windows"
-        "${BGFX_DIR}/.build/win64_vs2022/bin"
-        "${BGFX_DIR}/.build/win32_vs2022/bin"
-        "${BGFX_DIR}/.build/linux64_gcc/bin"
-    DOC "bgfx shader compiler for uber shaders"
     NO_DEFAULT_PATH
 )
 
 # Fallback: search PATH
-if(NOT UBER_SHADERC_EXECUTABLE)
-    find_program(UBER_SHADERC_EXECUTABLE NAMES shaderc shaderc.exe shadercRelease shadercRelease.exe)
+if(NOT SHADERC_EXECUTABLE)
+    find_program(SHADERC_EXECUTABLE NAMES shaderc shadercRelease)
 endif()
 
-if(NOT UBER_SHADERC_EXECUTABLE)
-    message(WARNING "shaderc not found. Skipping uber shader compilation. Pre-compiled .bin files may be used.")
+if(NOT SHADERC_EXECUTABLE)
+    message(WARNING "shaderc not found. Skipping shader compilation. "
+        "Pre-compiled .bin files must be placed in ${BGFX_SHADER_OUTPUT_DIR}/ manually.")
+    file(MAKE_DIRECTORY "${BGFX_SHADER_OUTPUT_DIR}")
+    return()
+endif()
+
+message(STATUS "Found shaderc: ${SHADERC_EXECUTABLE}")
+
+# ─── Shader profiles per platform ─────────────────────────────────────────────
+
+if(WIN32)
+    # Windows: D3D11 primary, D3D9 legacy
+    set(ALL_PROFILES s_5_0 s_3_0)
+    set(PROFILE_PLATFORM_s_5_0 "windows")
+    set(PROFILE_PLATFORM_s_3_0 "windows")
+elseif(APPLE)
+    # macOS: Metal + OpenGL fallback
+    set(ALL_PROFILES metal 120)
+    set(PROFILE_PLATFORM_metal "osx")
+    set(PROFILE_PLATFORM_120 "osx")
 else()
-    message(STATUS "Found shaderc: ${UBER_SHADERC_EXECUTABLE}")
-
-    # Ensure output directory exists
-    file(MAKE_DIRECTORY "${UBER_SHADER_OUTPUT_DIR}")
-
-    # Vertex shader: vs_uber.sc → vs_uber.bin
-    set(UBER_VS_SRC "${UBER_SHADER_SOURCE_DIR}/vs_uber.sc")
-    set(UBER_VS_OUT "${UBER_SHADER_OUTPUT_DIR}/vs_uber.bin")
-
-    add_custom_command(
-        OUTPUT "${UBER_VS_OUT}"
-        COMMAND "${UBER_SHADERC_EXECUTABLE}"
-            -f "${UBER_VS_SRC}"
-            -o "${UBER_VS_OUT}"
-            --type vertex
-            --platform windows
-            --profile s_5_0
-            --varyingdef "${CMAKE_CURRENT_SOURCE_DIR}/shaders/varying.def.sc"
-            -i "${UBER_SHADER_SOURCE_DIR}"
-            -i "${BGFX_DIR}/src"
-        DEPENDS "${UBER_VS_SRC}" "${CMAKE_CURRENT_SOURCE_DIR}/shaders/varying.def.sc"
-        COMMENT "Compiling uber vertex shader: vs_uber.sc → vs_uber.bin"
-        VERBATIM
-    )
-
-    # Fragment shader: fs_uber.sc → fs_uber.bin
-    set(UBER_FS_SRC "${UBER_SHADER_SOURCE_DIR}/fs_uber.sc")
-    set(UBER_FS_OUT "${UBER_SHADER_OUTPUT_DIR}/fs_uber.bin")
-
-    add_custom_command(
-        OUTPUT "${UBER_FS_OUT}"
-        COMMAND "${UBER_SHADERC_EXECUTABLE}"
-            -f "${UBER_FS_SRC}"
-            -o "${UBER_FS_OUT}"
-            --type fragment
-            --platform windows
-            --profile s_5_0
-            --varyingdef "${CMAKE_CURRENT_SOURCE_DIR}/shaders/varying.def.sc"
-            -i "${UBER_SHADER_SOURCE_DIR}"
-            -i "${BGFX_DIR}/src"
-        DEPENDS "${UBER_FS_SRC}" "${CMAKE_CURRENT_SOURCE_DIR}/shaders/varying.def.sc"
-        COMMENT "Compiling uber fragment shader: fs_uber.sc → fs_uber.bin"
-        VERBATIM
-    )
-
-    # Custom target that depends on all compiled uber shaders
-    add_custom_target(bgfx_shaders
-        DEPENDS
-            "${UBER_VS_OUT}"
-            "${UBER_FS_OUT}"
-        COMMENT "Building bgfx uber shaders"
-    )
-
-    # Ensure uber shaders are compiled before the ww3d2 library
-    add_dependencies(ww3d2 bgfx_shaders)
+    # Linux: OpenGL + Vulkan
+    set(ALL_PROFILES 120 spirv)
+    set(PROFILE_PLATFORM_120 "linux")
+    set(PROFILE_PLATFORM_spirv "linux")
 endif()
+
+# ─── Source shaders ────────────────────────────────────────────────────────────
+
+# Mesh shaders: vs_mesh.sc, fs_mesh.sc
+set(MESH_SHADER_SOURCES
+    "${BGFX_SHADER_SOURCE_DIR}/vs_mesh.sc"
+    "${BGFX_SHADER_SOURCE_DIR}/fs_mesh.sc"
+)
+
+# Uber shaders: vs_uber.sc, fs_uber.sc
+set(UBER_SHADER_SOURCES
+    "${BGFX_SHADER_SOURCE_DIR}/vs_uber.sc"
+    "${BGFX_SHADER_SOURCE_DIR}/fs_uber.sc"
+)
+
+# ─── Compile a single shader ──────────────────────────────────────────────────
+
+function(compile_bgfx_shader INPUT OUTPUT TYPE PROFILE PLATFORM)
+    add_custom_command(
+        OUTPUT "${OUTPUT}"
+        COMMAND "${SHADERC_EXECUTABLE}"
+            -f "${INPUT}"
+            -o "${OUTPUT}"
+            --type ${TYPE}
+            --platform ${PLATFORM}
+            -p ${PROFILE}
+            --varyingdef "${BGFX_SHADER_VARYING_DEF}"
+            -i "${BGFX_SHADER_SOURCE_DIR}"
+            -i "${BGFX_DIR}/src"
+            -i "${BGFX_DIR}/include"
+            -i "${BGFX_DIR}/examples/common"
+        DEPENDS "${INPUT}" "${BGFX_SHADER_VARYING_DEF}"
+        COMMENT "Compiling ${PROFILE} ${OUTPUT}"
+        VERBATIM
+    )
+endfunction()
+
+# ─── Determine shader type from filename prefix ────────────────────────────────
+
+function(shader_type_from_name NAME RESULT)
+    if(${NAME} MATCHES "^vs_")
+        set(${RESULT} "vertex" PARENT_SCOPE)
+    elseif(${NAME} MATCHES "^fs_")
+        set(${RESULT} "fragment" PARENT_SCOPE)
+    elseif(${NAME} MATCHES "^cs_")
+        set(${RESULT} "compute" PARENT_SCOPE)
+    else()
+        set(${RESULT} "vertex" PARENT_SCOPE)
+    endif()
+endfunction()
+
+# ─── Compile all source shaders for all profiles ──────────────────────────────
+
+set(ALL_COMPILED)
+
+foreach(SHADER_SRC ${MESH_SHADER_SOURCES} ${UBER_SHADER_SOURCES})
+    get_filename_component(SHADER_NAME ${SHADER_SRC} NAME_WE)
+    shader_type_from_name(${SHADER_NAME} SHADER_TYPE)
+
+    foreach(PROFILE ${ALL_PROFILES})
+        set(PLATFORM "${PROFILE_PLATFORM_${PROFILE}}")
+        set(OUTPUT "${BGFX_SHADER_OUTPUT_DIR}/${SHADER_NAME}_${PROFILE}.bin")
+        compile_bgfx_shader("${SHADER_SRC}" "${OUTPUT}" "${SHADER_TYPE}" "${PROFILE}" "${PLATFORM}")
+        list(APPEND ALL_COMPILED "${OUTPUT}")
+    endforeach()
+endforeach()
+
+# ─── Output directory ─────────────────────────────────────────────────────────
+
+file(MAKE_DIRECTORY "${BGFX_SHADER_OUTPUT_DIR}")
+
+# ─── Copy embedded / pre-built shaders if present ─────────────────────────────
+
+set(EMBEDDED_COMPILED)
+if(EXISTS "${BGFX_SHADER_EMBED_DIR}")
+    file(GLOB EMBEDDED_SHADERS "${BGFX_SHADER_EMBED_DIR}/*.bin")
+    foreach(EMBED ${EMBEDDED_SHADERS})
+        get_filename_component(EMBED_NAME ${EMBED} NAME)
+        set(OUTPUT "${BGFX_SHADER_OUTPUT_DIR}/${EMBED_NAME}")
+        add_custom_command(
+            OUTPUT "${OUTPUT}"
+            COMMAND "${CMAKE_COMMAND}" -E copy "${EMBED}" "${OUTPUT}"
+            DEPENDS "${EMBED}"
+            COMMENT "Copying embedded shader: ${EMBED_NAME}"
+        )
+        list(APPEND EMBEDDED_COMPILED "${OUTPUT}")
+    endforeach()
+endif()
+
+# ─── Custom target: bgfx-shaders (always built) ───────────────────────────────
+
+set(ALL_SHADER_OUTPUTS ${ALL_COMPILED} ${EMBEDDED_COMPILED})
+list(REMOVE_DUPLICATES ALL_SHADER_OUTPUTS)
+
+add_custom_target(bgfx-shaders ALL DEPENDS ${ALL_SHADER_OUTPUTS})
+
+# Ensure shaders are ready before the main executable
+add_dependencies(ww3d2 bgfx-shaders)
+
+message(STATUS "BGFX shader output: ${BGFX_SHADER_OUTPUT_DIR}")
