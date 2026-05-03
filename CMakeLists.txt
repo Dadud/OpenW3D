@@ -55,6 +55,11 @@ add_feature_info(FFMpegBuild W3D_BUILD_OPTION_FFMPEG "Build OpenW3D with FFMpeg"
 cmake_dependent_option(W3D_BUILD_OPTION_OPENAL "Build with OpenAL 3D spatial audio." ON "NOT WIN32" OFF)
 add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build with OpenAL")
 
+# Do we want to build with the BGFX graphics backend?
+# Requires: git submodule update --init --recursive (bgfx, bx, bimg)
+cmake_dependent_option(ENABLE_BGFX_BACKEND "Build with BGFX modern graphics backend." OFF "NOT WIN32" OFF)
+add_feature_info(BGFXBackend ENABLE_BGFX_BACKEND "Build with BGFX backend")
+
 if(NOT WIN32)
     add_compile_definitions(__cdecl=)
     add_compile_definitions(__stdcall=)
@@ -73,6 +78,10 @@ endif()
 
 if(W3D_BUILD_OPTION_OPENAL)
     include(openal)
+endif()
+
+if(ENABLE_BGFX_BACKEND)
+    include(bgfx)
 endif()
 
 if(W3D_BUILD_OPTION_SDL3)

@@ -35,12 +35,23 @@ endif()
 
 # Verify bx submodule is present
 if(NOT EXISTS "${BX_DIR}/include/bx/bx.h")
-    message(FATAL_ERROR "bx submodule not initialized. Run:\n  git submodule update --init --recursive")
+    message(FATAL_ERROR "bx submodule not initialized. Run:\n"
+        "  git submodule update --init --recursive\n"
+        "Then rebuild.")
 endif()
 
 # Verify bgfx submodule is present
 if(NOT EXISTS "${BGFX_DIR}/include/bgfx/bgfx.h")
-    message(FATAL_ERROR "bgfx submodule not initialized. Run:\n  git submodule update --init --recursive")
+    message(FATAL_ERROR "bgfx submodule not initialized. Run:\n"
+        "  git submodule update --init --recursive\n"
+        "Then rebuild.")
+endif()
+
+# Verify bimg submodule is present
+if(NOT EXISTS "${BIMG_DIR}/include/bimg/bimg.h")
+    message(FATAL_ERROR "bimg submodule not initialized. Run:\n"
+        "  git submodule update --init --recursive\n"
+        "Then rebuild.")
 endif()
 
 # Create interface library for bgfx headers and dependencies
@@ -50,6 +61,7 @@ target_include_directories(bgfx INTERFACE
     "${BGFX_DIR}/include"
     "${BGFX_DIR}/include/c99"
     "${BX_DIR}/include"
+    "${BIMG_DIR}/include"
 )
 
 # BGFX requires C++17 minimum; consumers opt into higher standards as needed
