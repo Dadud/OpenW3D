@@ -47,8 +47,13 @@ cmake_dependent_option(W3D_BUILD_OPTION_WEBBROWSER "Build OpenW3D with webbrowse
 add_feature_info(BrowserBuild W3D_BUILD_OPTION_WEBBROWSER "Build OpenW3D with webbrowser")
 
 # Do we want to build with ffmpeg for audio/video decoding?
-option(W3D_BUILD_OPTION_FFMPEG "Build with ffmpeg." OFF)
+option(W3D_BUILD_OPTION_FFMPEG "Build with ffmpeg." ON)
 add_feature_info(FFMpegBuild W3D_BUILD_OPTION_FFMPEG "Build OpenW3D with FFMpeg")
+
+# Do we want to build with OpenAL for 3D spatial audio?
+# OpenAL provides HRTF and EFX reverb on all platforms; Windows has native DSound fallback
+cmake_dependent_option(W3D_BUILD_OPTION_OPENAL "Build with OpenAL 3D spatial audio." ON "NOT WIN32" OFF)
+add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build with OpenAL")
 
 if(NOT WIN32)
     add_compile_definitions(__cdecl=)
@@ -66,6 +71,10 @@ if(W3D_BUILD_OPTION_FFMPEG)
     include(ffmpeg)
 endif()
 
+if(W3D_BUILD_OPTION_OPENAL)
+    include(openal)
+endif()
+
 if(W3D_BUILD_OPTION_SDL3)
     include(sdl3)
     add_compile_definitions(-DOPENW3D_SDL3=1)
@@ -79,7 +88,7 @@ add_compile_definitions(-DWEBBROWSER_ENABLED=$<BOOL:${W3D_BUILD_OPTION_WEBBROWSE
 
 if(WIN32)
     # Do we want to build with bink for video decoding?
-    option(W3D_BUILD_OPTION_BINK "Build with bink." ON)
+    option(W3D_BUILD_OPTION_BINK "Build with bink." OFF)
     add_feature_info(BinkBuild W3D_BUILD_OPTION_BINK "Build OpenW3D with Bink")
 
     if(W3D_BUILD_OPTION_BINK)
