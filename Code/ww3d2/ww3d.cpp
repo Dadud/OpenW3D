@@ -81,6 +81,9 @@
 #include "ww3dbackend.h"
 #include "dx8backend.h"
 #include "nullbackend.h"
+#if defined(WW3D_BGFX_BACKEND)
+#include "backends/bgfx/bgfxbackend.h"
+#endif
 #include "rinfo.h"
 #include "assetmgr.h"
 #include "boxrobj.h"
@@ -271,11 +274,13 @@ WW3DErrorType WW3D::Init(void *hwnd, char * /*defaultpal*/, bool lite)
 	** Backend selection
 	*/
 	if (!Backend) {
-		#if defined(_WIN32) || defined(WIN32)
-			Backend = new DX8Backend();
-		#else
-			Backend = new NullBackend();
-		#endif
+	#if defined(WW3D_BGFX_BACKEND)
+		Backend = new BGFXBackend();
+	#elif defined(_WIN32) || defined(WIN32)
+		Backend = new DX8Backend();
+	#else
+		Backend = new NullBackend();
+	#endif
 	}
 
 	/*

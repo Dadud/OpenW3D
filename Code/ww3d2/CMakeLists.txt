@@ -240,6 +240,8 @@ if(ENABLE_BGFX_BACKEND)
         backends/bgfx/ShaderVariantCache.h
         backends/bgfx/ShaderVariantCache.cpp
     )
+    # Expose backends/ as an include path so #include "backends/bgfx/bgfxbackend.h" resolves
+    target_include_directories(ww3d2 PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 endif()
 
 # Targets to build.
