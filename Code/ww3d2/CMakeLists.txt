@@ -101,6 +101,8 @@ set(WW3D2_SRC
     w3d_dep.cpp
     w3d_util.cpp
     ww3d.cpp
+    dx8backend.cpp
+    nullbackend.cpp
     ww3dformat.cpp
     aabtree.h
     aabtreebuilder.h
