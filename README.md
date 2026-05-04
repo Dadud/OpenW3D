@@ -1,65 +1,126 @@
+# OpenW3D
 
-# Command & Conquer Renegade
+OpenW3D is a cross-platform modernization of the [Command & Conquer: Renegade](https://www.ea.com/games/command-and-conquer/command-and-conquer-the-ultimate-collection) game engine. It replaces the original DirectX 8 fixed-function rendering pipeline with a modern [BGFX](https://github.com/bkaradzic/bgfx) backend while preserving the original game's logic, assets, and multiplayer infrastructure.
 
-This repository includes source code for Command & Conquer Renegade. This release provides support to the [Steam Workshop](https://steamcommunity.com/workshop/browse/?appid=2229890) for the game.
+This is a **modder's and engine-hacker's foundation** — not a drop-in replacement for the retail game. You need a legal copy of Command & Conquer: Renegade to use it.
 
+## Build Status
 
-## Dependencies
+| Platform | Backend | Status |
+|----------|---------|--------|
+| Windows (MSVC x64) | DX9 (native) | ✅ Builds |
+| Windows (MinGW x64) | DX9 (native) | ✅ Builds |
+| Windows (MinGW x64) | BGFX (Vulkan) | ✅ Builds |
+| Linux (GCC/Clang) | NullBackend | ✅ Builds |
+| Linux (GCC/Clang) | BGFX (Vulkan) | ✅ Builds |
+| macOS | Any | ⚠️ Untested |
 
-If you wish to rebuild the source code and tools successfully you will need to find or write new replacements (or remove the code using them entirely) for the following libraries;
+The original `electronicarts/CnC_Renegade` source release compiled only on Windows with Visual Studio 6. OpenW3D adds Linux and macOS support.
 
-- DirectX SDK (Version 8.0 or higher) (expected path `\Code\DirectX\`)
-- RAD Bink SDK - (expected path `\Code\BinkMovie\`)
-- RAD Miles Sound System SDK - (expected path `\Code\Miles6\`)
-- NvDXTLib SDK - (expected path `\Code\NvDXTLib\`)
-- Lightscape SDK - (expected path `\Code\Lightscape\`)
-- Umbra SDK - (expected path `\Code\Umbra\`)
-- GameSpy SDK - (expected path `\Code\GameSpy\`)
-- GNU Regex - (expected path `\Code\WWLib\`)
-- SafeDisk API - (expected path `\Code\Launcher\SafeDisk\`)
-- Microsoft Cab Archive Library - (expected path `\Code\Installer\Cab\`)
-- RTPatch Library - (expected path `\Code\Installer\`)
-- Java Runtime Headers - (expected path `\Code\Tools\RenegadeGR\`)
+## Quick Start
 
+### Prerequisites
 
-## Compiling (Win32 Only)
+- CMake 3.25+
+- C++20 compiler (GCC 11+, Clang 14+, MSVC 17.5+)
+- A legal copy of Command & Conquer: Renegade (retail `.mix` data files)
 
-To use the compiled binaries, you must own the game. The C&C Ultimate Collection is available for purchase on [EA App](https://www.ea.com/en-gb/games/command-and-conquer/command-and-conquer-the-ultimate-collection/buy/pc) or [Steam](https://store.steampowered.com/bundle/39394/Command__Conquer_The_Ultimate_Collection/).
+### Clone
 
-### Renegade
+```bash
+git clone https://github.com/w3dhub/OpenW3D.git
+cd OpenW3D
+git submodule update --init --recursive
+```
 
-The quickest way to build all configurations in the project is to open `commando.dsw` in Microsoft Visual Studio C++ 6.0 (SP5 recommended for binary matching to patch 1.037) and select Build -> Batch Build, then hit the “Rebuild All” button.
+### Build (Linux, BGFX/Vulkan)
 
-If you wish to compile the code under a modern version of Microsoft Visual Studio, you can convert the legacy project file to a modern MSVC solution by opening the `commando.dsw` in Microsoft Visual Studio .NET 2003, and then opening the newly created project and solution file in MSVC 2015 or newer.
+```bash
+cmake -S . -B build -DENABLE_BGFX_BACKEND=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
 
-NOTE: As modern versions of MSVC enforce newer revisions of the C++ standard, you will need to make extensive changes to the codebase before it successfully compiles, even more so if you plan on compiling for the Win64 platform.
+### Build (Windows, MSVC, DX9 native)
 
-When the workspace has finished building, the compiled binaries will be copied to the `/Run/` directory found in the root of this repository. 
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -Ax64 -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
 
+### Build (Linux, NullBackend — no GPU required)
 
-### Free Dedicated Server
-It’s possible to build the Windows version of the FDS (Free Dedicated Server) for Command & Conquer Renegade from the source code in this repository, just uncomment `#define FREEDEDICATEDSERVER` in [Combat\specialbuilds.h](Combat\specialbuilds.h) and perform a “Rebuild All” action on the Release config.
+```bash
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
+```
 
+### Run
 
-### Level Edit (Public Release)
-To build the public release build of Level Edit, modify the LevelEdit project settings and add `PUBLIC_EDITOR_VER` to the preprocessor defines.
+Copy retail game data files (`.mix` files from the Renegade install directory) into the `Run/` directory, then run the `renegade` or `combat` binary from the build directory.
 
+## Project Structure
 
-## Known Issues
+### Libraries
 
-The “Debug” configuration of the “Commando” project (the Renegade main project) will sometimes fail to link the final executable. This is due to Windows Defender incorrectly detecting RenegadeD.exe containing a virus (possibly due to the embedded browser code). Excluding the output `/Run/` folder found in the root of this repository in Windows Defender should resolve this for you.
+| Directory | Purpose |
+|-----------|---------|
+| `Code/WWMath/` | Math: vectors, matrices, quaternions, planes, collision (AABB/OBB/sphere/ray), culling, splines |
+| `Code/wwutil/` | Utilities: string manipulation, argument parsing, memory management, base64, heap, critsections |
+| `Code/wwdebug/` | Debug: profiling (`wwprofile`), memory logging (`wwmemlog`), debug utils |
+| `Code/wwbitpack/` | Bitstream packing/unpacking for network and file I/O |
+| `Code/wwlib/` | Core I/O: file classes, INI parsing, MIX archive handling, CRC, chunk I/O, threading |
+| `Code/wwsaveload/` | Save/load system for game state serialization |
+| `Code/wwtranslatedb/` | INI-to-binary translation cache |
+| `Code/wwui/` | UI framework: dialog system, controls (button, list, tree, edit, slider, etc.), input handling |
+| `Code/WWAudio/` | Audio: sound system abstraction with OpenAL and Miles backend support |
+| `Code/ww3d2/` | 3D engine: W3D file format parser (RenderWare R3), renderer, shader system, terrain, materials, animations |
+| `Code/wwnet/` | Networking: packet management, socket wrappers (Win32/posix), LAN discovery, connection state machine |
+| `Code/wwphys/` | Physics: collision detection, pathfinding (A*), vehicle physics (tracked, wheeled, motorcycle), projectile simulation |
+| `Code/Combat/` | Game logic: weapons, combat, gameplay rules |
+| `Code/Commando/` | Main game client |
+| `Code/WWOnline/` | Matchmaking and online services |
+| `Code/BandTest/` | Bink video decoder integration |
+| `Code/BinkMovie/` | Movie playback subsystem |
+| `Code/Scripts/` | Game scripts (INI-based logic) |
 
+### Renderer Backends (`Code/ww3d2/backends/`)
+
+| Backend | Description |
+|---------|-------------|
+| `bgfx/` | Modern cross-platform renderer using BGFX (Vulkan, D3D11/12, OpenGL, Metal). Primary target for new development. |
+| `null/` | No-op renderer for headless servers and build verification |
+
+The `DX8` backend (DirectX 8/9 wrapper) is Windows-only and present in `dx8caps.cpp`, `dx8renderer.cpp`, etc. It is not actively maintained.
+
+### External Dependencies
+
+Managed via CMake FetchContent or git submodules:
+
+| Dependency | Purpose |
+|------------|---------|
+| `external/bgfx/` | Renderer abstraction library |
+| `external/bx/` | BGFX utility library (required by bgfx) |
+| `external/bimg/` | BGFX image processing (required by bgfx) |
+| FFmpeg | Audio/video decoding via `W3D_BUILD_OPTION_FFMPEG=ON` |
+| OpenAL | Spatial audio via `W3D_BUILD_OPTION_OPENAL=ON` (default on non-Windows) |
+| SDL3 | Input and window management on Windows (`W3D_BUILD_OPTION_SDL3=ON`) |
+| ICU4C | Unicode string handling via vcpkg or system ICU |
+
+## Documentation
+
+- [`docs/TASKS.md`](docs/TASKS.md) — Internal task tracking for the modernization effort
+- [`docs/C005-C010-ANALYSIS.md`](docs/C005-C010-ANALYSIS.md) — Renderer backend implementation analysis
+- [`docs/history/`](docs/history/) — Historical artifacts from the original EA source release
 
 ## Contributing
 
-This repository will not be accepting contributions (pull requests, issues, etc). If you wish to create changes to the source code and encourage collaboration, please create a fork of the repository under your GitHub user/organization space.
+This project is a community fork. Before opening PRs, please read [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) (coming soon). Key expectations:
 
-
-## Support
-
-This repository is for preservation purposes only and is archived without support. 
-
+- **Small, focused PRs.** One logical change per PR. Large refactors or backend rewrites need discussion in an Issue first.
+- **Playtesting before merge.** CI must be green and the change must be tested in-game where applicable.
+- **Draft PRs for work-in-progress.** Use GitHub Draft PRs for incomplete features.
+- **Community norms.** The team coordinates on Discord — see the repo description for the invite link.
 
 ## License
 
-This repository and its contents are licensed under the GPL v3 license, with additional terms applied. Please see [LICENSE.md](LICENSE.md) for details.
+GPL v3 with additional terms. See [`LICENSE.md`](LICENSE.md) and [`docs/history/LICENSE.original.md`](docs/history/LICENSE.original.md).
