@@ -38,8 +38,10 @@
 #include "ini.h"
 #include "inisup.h"
 #include <assert.h>
-#include <windows.h>
+
+#if defined(_WIN32)
 #include <limits>
+#include <windows.h>
 
 //#include "wwdebug.h"
 
@@ -745,3 +747,33 @@ void RegistryClass::Delete_Registry_Tree(char *path)
 
 
 
+#endif  // _WIN32
+
+#if !defined(_WIN32)
+// Registry operations are Windows-only. stubs provided for non-Windows builds.
+bool RegistryClass::IsLocked = false;
+RegistryClass::RegistryClass(const char* /*sub_key*/, bool /*create*/) : Key(nullptr), IsValid(false) {}
+RegistryClass::~RegistryClass(void) {}
+bool RegistryClass::Exists(const char* /*sub_key*/) { return false; }
+int  RegistryClass::Get_Int(const char* /*name*/, int def_value) { return def_value; }
+void RegistryClass::Set_Int(const char* /*name*/, int /*value*/) {}
+bool RegistryClass::Get_Bool(const char* /*name*/, bool def_value) { return def_value; }
+void RegistryClass::Set_Bool(const char* /*name*/, bool /*value*/) {}
+float RegistryClass::Get_Float(const char* /*name*/, float def_value) { return def_value; }
+void RegistryClass::Set_Float(const char* /*name*/, float /*value*/) {}
+char* RegistryClass::Get_String(const char* /*name*/, char* value, int value_size, const char* default_string) { if (value && value_size > 0) { strncpy(value, default_string ? default_string : "", value_size - 1); value[value_size - 1] = '\0'; } return value; }
+void RegistryClass::Get_String(const char* /*name*/, StringClass& string, const char* default_string) { string = default_string ? default_string : ""; }
+void RegistryClass::Set_String(const char* /*name*/, const char* /*value*/) {}
+int  RegistryClass::Get_Bin_Size(const char* /*name*/) { return 0; }
+void RegistryClass::Get_Bin(const char* /*name*/, void* /*buffer*/, int /*buffer_size*/) {}
+void RegistryClass::Set_Bin(const char* /*name*/, const void* /*buffer*/, int /*buffer_size*/) {}
+void RegistryClass::Get_Value_List(DynamicVectorClass<StringClass>& /*list*/) {}
+void RegistryClass::Delete_Value(const char* /*name*/) {}
+void RegistryClass::Deleta_All_Values(void) {}
+void RegistryClass::Save_Registry_Values(int /*key*/, char* /*path*/, INIClass* /*ini*/) {}
+void RegistryClass::Save_Registry_Tree(char* /*path*/, INIClass* /*ini*/) {}
+void RegistryClass::Save_Registry(const char* /*filename*/, char* /*path*/) {}
+void RegistryClass::Load_Registry(const char* /*filename*/, char* /*old_path*/, char* /*new_path*/) {}
+void RegistryClass::Delete_Registry_Values(int /*key*/) {}
+void RegistryClass::Delete_Registry_Tree(char* /*path*/) {}
+#endif

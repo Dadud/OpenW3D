@@ -312,11 +312,17 @@ MixFileFactoryClass::Flush_Changes (void)
 	//
 	//	Get the path of the mix file
 	//
+#if defined(_WIN32)
 	char drive[_MAX_DRIVE] = { 0 };
 	char dir[_MAX_DIR] = { 0 };
 	::_splitpath (MixFilename, drive, dir, NULL, NULL);
 	StringClass path	= drive;
-	path					+= dir;
+	path								+= dir;
+#else
+	StringClass path;
+	// On non-Windows, use the filename as-is in the current directory
+	path = "";
+#endif
 
 	//
 	//	Try to find a temp filename
@@ -365,8 +371,10 @@ MixFileFactoryClass::Flush_Changes (void)
 	//
 	//	Delete the old mix file and rename the new one
 	//
+#if defined(_WIN32)
 	::DeleteFileA (MixFilename);
 	::MoveFileA (full_path, MixFilename);
+#endif
 
 	//
 	//	Reset the lists
@@ -597,6 +605,7 @@ void	MixFileCreator::Add_File( const char * filename, FileClass *file )
 */
 void	Add_Files( const char * dir, MixFileCreator & mix )
 {
+#if defined(_WIN32)
 	BOOL bcontinue = true;
 	HANDLE hfile_find;
 	WIN32_FIND_DATAA find_info = {0};
@@ -622,6 +631,7 @@ void	Add_Files( const char * dir, MixFileCreator & mix )
 //			WWDEBUG_SAY(( "Adding file from %s %s\n", source, name ));
 		}
 	}
+#endif
 }
 
 void	Setup_Mix_File( void )

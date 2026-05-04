@@ -44,8 +44,12 @@
 
 #include "vector.h"
 #include "wwstring.h"
+#if defined(_WIN32)
 #include <d3d9types.h>
 #include <d3d9caps.h>
+#else
+#include "ww3d_platform.h"
+#endif
 
 class ResolutionDescClass
 {

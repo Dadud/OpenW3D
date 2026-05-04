@@ -45,7 +45,9 @@
 #define DX8_FVF_H
 
 #include "always.h"
+#if defined(_WIN32)
 #include <d3d9.h>
+#endif
 #ifdef WWDEBUG
 #include "wwdebug.h"
 #endif

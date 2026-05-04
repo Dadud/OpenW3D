@@ -47,7 +47,9 @@
 
 Random4Class rand4;
 
+#if defined(_WIN32)
 inline DWORD F2DW( FLOAT f ) { return *((DWORD*)&f); }
+#endif
 
 
 // HY 1/26/01

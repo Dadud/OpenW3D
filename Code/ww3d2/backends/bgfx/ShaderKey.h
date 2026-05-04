@@ -1,6 +1,7 @@
 #pragma once
 #include "shader.h"
-#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <functional>
 
 struct ShaderKey {

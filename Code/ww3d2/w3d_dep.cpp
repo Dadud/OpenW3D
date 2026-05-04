@@ -51,9 +51,15 @@
 #include "w3d_dep.h"
 #include "w3d_file.h"
 #include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
 #include <chunkio.h>
 #include "ffactory.h"
 #include "wwlib/wwstring.h"
+
+#ifndef _MAX_PATH
+#define _MAX_PATH 260
+#endif
 
 
 /*

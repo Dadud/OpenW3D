@@ -39,6 +39,14 @@
 #include	"always.h"
 #include	"crc.h"
 
+#if !defined(_WIN32)
+// Cross-platform rotate left — Windows has _lrotl, Unix needs this
+#include	<stdint.h>
+static inline uint32_t _lrotl(uint32_t x, int r) {
+	return ((x << r) | (x >> (32 - r))) & 0xFFFFFFFFu;
+}
+#endif
+
 
 /***********************************************************************************************
  * CRCEngine::operator() -- Submits one byte of data to the CRC engine.                        *

@@ -65,7 +65,6 @@ static const char* GetRendererSuffix()
         case bgfx::RendererType::OpenGLES:     return "120";
         case bgfx::RendererType::Direct3D11:    return "s_5_0";
         case bgfx::RendererType::Direct3D12:    return "s_5_0";
-        case bgfx::RendererType::Direct3D9:     return "s_3_0";
         case bgfx::RendererType::OpenGL:        return "120";
         default:                                return "120";
     }

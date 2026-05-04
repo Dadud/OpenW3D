@@ -54,8 +54,12 @@
 #include "vector2i.h"
 #include "colorspace.h"
 #include "bound.h"
+#if defined(_WIN32)
 #include <d3dx9.h>
+#endif
 #include <algorithm>
+
+#if defined(_WIN32)
 
 /***********************************************************************************************
  * PixelSize -- Helper Function to find the size in bytes of a pixel                           *
@@ -1018,3 +1022,4 @@ void SurfaceClass::Hue_Shift(const Vector3 &hsv_shift)
 
 	Unlock();
 }
+#endif // _WIN32

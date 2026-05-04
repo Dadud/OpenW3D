@@ -24,24 +24,25 @@
  *                                                                                             *
  *                     $Archive:: /Commando/Code/ww3d2/dx8wrapper.cpp                         $*
  *                                                                                             *
- *              Original Author:: Jani Penttinen                                               *
+ *                       $Author:: Greg Hjelstrom                                              $*
  *                                                                                             *
- *                      $Author:: Jani_p                                                      $*
+ *                     $Modtime:: 4/15/03 5:36p                                              $*
  *                                                                                             *
- *                     $Modtime:: 3/12/02 4:27p                                               $*
+ *                     $Revision:: 1                   $*
  *                                                                                             *
- *                    $Revision:: 170                                                         $*
  *                                                                                             *
- *---------------------------------------------------------------------------------------------*
- * Functions:                                                                                  *
- *   DX8Wrapper::_Update_Texture -- Copies a texture from system memory to video memory        *
- * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
+ *  Introduction:                                                                              *
+ *    DX8Wrapper provides a simplified C++ interface to Direct3D8/9.  It is used to manage      *
+ *    all rendering.  The purpose of this class is to hide the COM-based interface of D3D     *
+ *    from most of the other code in the library.                                             *
+ *                                                                                             *
+ ***********************************************************************************************/
 
-//#define CREATE_DX8_MULTI_THREADED
-//#define CREATE_DX8_FPU_PRESERVE
-#define WW3D_DEVTYPE D3DDEVTYPE_HAL
+#if defined(_WIN32)
 
 #include "dx8wrapper.h"
+#define WW3D_DEVTYPE D3DDEVTYPE_HAL
+
 #include "dx8fvf.h"
 #include "dx8vertexbuffer.h"
 #include "dx8indexbuffer.h"
@@ -3530,3 +3531,4 @@ void DX8Wrapper::Set_DX8_Render_State(D3DRENDERSTATETYPE state, unsigned value)
 	DX8CALL(SetRenderState( state, value ));
 	DX8_RECORD_RENDER_STATE_CHANGE();
 }
+#endif // _WIN32

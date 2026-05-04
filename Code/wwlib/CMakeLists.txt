@@ -7,39 +7,27 @@ set(WWLIB_SRC
     buff.cpp
     bufffile.cpp
     chunkio.cpp
-    cpudetect.cpp
     crc.cpp
     cstraw.cpp
-    Except.cpp
     FastAllocator.cpp
     ffactory.cpp
     gcd_lcm.cpp
     hash.cpp
-    ini.cpp
     int.cpp
     jshell.cpp
-    LaunchWeb.cpp
     lzo.cpp
     lzo1x_c.cpp
     lzo1x_d.cpp
-    mixfile.cpp
     mpmath.cpp
     mpu.cpp
-    msgloop.cpp
     multilist.cpp
     mutex.cpp
     nstrdup.cpp
-    openw3d.cpp
     pipe.cpp
     pk.cpp
     ramfile.cpp
     random.cpp
-    rawfile.cpp
-    rcfile.cpp
-    readline.cpp
     realcrc.cpp
-    refcount.cpp
-    registry.cpp
     rndstrng.cpp
     slnode.cpp
     straw.cpp
@@ -47,13 +35,9 @@ set(WWLIB_SRC
     tagblock.cpp
     TARGA.CPP
     textfile.cpp
-    thread.cpp
     trim.cpp
     vector.cpp
-    verchk.cpp
     widestring.cpp
-    win.cpp
-    WWCOMUtil.cpp
     wwfile.cpp
     wwstring.cpp
     xpipe.cpp
@@ -71,7 +55,6 @@ set(WWLIB_SRC
     bufffile.h
     CallbackHook.h
     chunkio.h
-    cpudetect.h
     crc.h
     cstraw.h
     FastAllocator.h
@@ -84,41 +67,32 @@ set(WWLIB_SRC
     hashtemplate.h
     iff.h
     index.h
-    ini.h
     inisup.h
     int.h
     iostruct.h
-    LaunchWeb.h
     listnode.h
     lzo.h
     lzo1x.h
     lzo_conf.h
     lzoconf.h
     mempool.h
-    mixfile.h
     mpmath.h
     mpu.h
-    msgloop.h
     multilist.h
     mutex.h
     Notify.h
     nstrdup.h
     ntree.h
-    openw3d.h
     pipe.h
     pk.h
     point.h
     ramfile.h
     random.h
-    rawfile.h
     rcfile.h
     readline.h
     realcrc.h
     ref_ptr.h
-    refcount.h
-    registry.h
     rndstraw.h
-    rndstrng.h
     rng.h
     sharebuf.h
     Signaler.h
@@ -130,27 +104,58 @@ set(WWLIB_SRC
     tagblock.h
     TARGA.H
     textfile.h
-    thread.h
     timer.h
-    trackwin.h
     trect.h
     trim.h
     uarray.h
     vector.h
-    verchk.h
     widestring.h
     win.h
-    WWCOMUtil.h
-    wwdialog.cpp
-    wwdialog.h
-    wwfile.h
     wwstring.h
     xmouse.h
     xpipe.h
     xstraw.h
 )
 
-if(TARGET ffmpeg)
+# Platform-specific files — only included on WIN32
+if(WIN32)
+    list(APPEND WWLIB_SRC
+        Except.cpp
+        cpudetect.cpp
+        LaunchWeb.cpp
+        msgloop.cpp
+        openw3d.cpp
+        rawfile.cpp
+        refcount.cpp
+        thread.cpp
+        verchk.cpp
+        win.cpp
+        wwdialog.cpp
+        Except.h
+        cpudetect.h
+        LaunchWeb.h
+        msgloop.h
+        openw3d.h
+        rawfile.h
+        refcount.h
+        thread.h
+        verchk.h
+        win.h
+        wwdialog.h
+    )
+endif()
+
+# Files with Win32 API calls that need runtime guards
+list(APPEND WWLIB_SRC
+    ini.cpp
+    mixfile.cpp
+    registry.cpp
+    ini.h
+    mixfile.h
+    registry.h
+)
+
+if(W3D_BUILD_OPTION_FFMPEG AND FFmpeg_FOUND)
     list(APPEND WWLIB_SRC FFMpegFile.cpp FFMpegFile.h)
 endif()
 
@@ -168,6 +173,7 @@ target_link_libraries(wwlib PRIVATE
     wwutil
     version
 )
+
 if(W3D_BUILD_OPTION_SDL3)
     target_link_libraries(wwlib PRIVATE SDL3::SDL3-shared)
     target_link_libraries(wwlib PUBLIC SDL3::Headers)

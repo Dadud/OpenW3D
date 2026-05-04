@@ -41,6 +41,7 @@
 #include "math.h"
 #include <cassert>
 #include <cstdint>
+#include <time.h>
 
 /***********************************************************************************************
  * Get_CPU_Rate -- Fetch the rate of CPU ticks per second.                                     *
@@ -59,6 +60,7 @@
  *=============================================================================================*/
 unsigned int Get_CPU_Rate(unsigned int & high)
 {
+#if defined(_WIN32)
 	LARGE_INTEGER LargeInt;
 
 	if (QueryPerformanceFrequency(&LargeInt)) {
@@ -67,11 +69,19 @@ unsigned int Get_CPU_Rate(unsigned int & high)
 	}
 	high = 0;
 	return(0);
+#else
+	// On non-Windows, fall back to nanosecond resolution via clock_gettime
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	high = static_cast<unsigned int>(ts.tv_sec);
+	return static_cast<unsigned int>(ts.tv_nsec);
+#endif
 }
 
 
 unsigned int Get_CPU_Clock(unsigned int & high)
 {
+#if defined(_WIN32)
 	LARGE_INTEGER LargeInt;
 	if (QueryPerformanceCounter(&LargeInt)) {
 		high = LargeInt.HighPart;
@@ -79,6 +89,12 @@ unsigned int Get_CPU_Clock(unsigned int & high)
 	}
 	high = 0;
 	return(0);
+#else
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	high = static_cast<unsigned int>(ts.tv_sec);
+	return static_cast<unsigned int>(ts.tv_nsec);
+#endif
 }
 
 

@@ -31,7 +31,9 @@
 #include "dx8caps.h"
 #include "missingtexture.h"
 #include "TARGA.H"
+#if defined(_WIN32)
 #include <d3dx9tex.h>
+#endif
 #include <cstdio>
 #include "wwmemlog.h"
 #include "texture.h"
@@ -773,16 +775,31 @@ void TextureLoader::Flush_Pending_Load_Tasks(void)
 }
 
 
-// Nework update macro for texture loader.
+// Network update macro for texture loader.
+#if defined(_WIN32)
 #include <mmsystem.h>
-#define UPDATE_NETWORK 											\
+#define UPDATE_NETWORK \
 	if (network_callback) {                            \
 		unsigned int time2 = timeGetTime();            \
 		if (time2 - time > 20) {                        \
 			network_callback();                          \
 			time = time2;                                \
 		}                                               \
-	}                                                  \
+	}
+#else
+// On non-Windows, use clock_gettime
+#include <time.h>
+#define UPDATE_NETWORK \
+	if (network_callback) {                            \
+		struct timespec ts;                           \
+		clock_gettime(CLOCK_MONOTONIC, &ts);          \
+		unsigned int time2 = ts.tv_nsec / 1000000;    \
+		if (time2 - time > 20) {                        \
+			network_callback();                          \
+			time = time2;                                \
+		}                                               \
+	}
+#endif
 
 
 void TextureLoader::Update(void (*network_callback)(void))

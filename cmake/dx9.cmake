@@ -1,3 +1,12 @@
+# dx9.cmake — Direct3D 9 support
+#
+# Windows: Provides min-dx9-sdk (DX8/9 headers/lib) for native DX backend.
+#          When ENABLE_BGFX_BACKEND=ON on Windows, the DX backend is optional
+#          and the min-dx9-sdk is not required (BGFX handles Vulkan/D3D11+).
+#
+# Non-Windows: No DX9/DX8 support. Only BGFX is available.
+#              BGFX uses Vulkan on Linux. No dxvk headers needed.
+
 if(WIN32)
     if(MSVC)
         FetchContent_Declare(
@@ -8,19 +17,14 @@ if(WIN32)
 
         FetchContent_MakeAvailable(dx9)
     else()
+        # MinGW on Windows: link against system d3d9/d3dx9
         add_library(d3d9lib INTERFACE)
         target_link_libraries(d3d9lib INTERFACE d3d9 d3dx9)
     endif()
 else()
-    find_path(DXVK_INCLUDE_PATH NAMES "dxvk/d3d9.h" REQUIRED)
-    find_library(DXVK_D3D9_LIBRARY NAMES "dxvk_d3d9" REQUIRED)
-    add_library(d3d9 UNKNOWN IMPORTED)
-    set_property(TARGET d3d9 PROPERTY IMPORTED_LOCATION "${DXVK_D3D9_LIBRARY}")
-    set_property(TARGET d3d9 PROPERTY INTERFACE_INCLUDE_DIRECTORIES "${DXVK_INCLUDE_PATH}")
-
+    # Non-Windows: no DirectX. BGFX-only.
+    # ww3d_platform.h provides minimal D3D type stubs so shared code compiles.
+    # Code/ww3d2/d3d9.h redirects to ww3d_platform.h for files that #include <d3d9.h>.
     add_library(d3d9lib INTERFACE)
-    target_link_libraries(d3d9lib INTERFACE d3d9)
-    target_include_directories(d3d9lib INTERFACE "${PROJECT_SOURCE_DIR}/Code/dxvk_wrapper")
-    target_include_directories(d3d9lib INTERFACE "${DXVK_INCLUDE_PATH}/dxvk")
+    target_include_directories(d3d9lib INTERFACE "${PROJECT_SOURCE_DIR}/Code/ww3d2")
 endif()
-

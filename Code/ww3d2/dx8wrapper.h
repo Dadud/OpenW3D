@@ -45,7 +45,11 @@
 
 #include "always.h"
 #include "dllist.h"
+#if defined(_WIN32)
 #include <d3d9.h>
+#else
+#include "ww3d_platform.h"
+#endif
 #include "matrix4.h"
 #include "statistics.h"
 #include "wwstring.h"
@@ -123,15 +127,29 @@ WWINLINE void DX8_ErrorCode(HRESULT res)
 }
 
 #ifdef WWDEBUG
+#if defined(_WIN32)
 #define DX8CALL_HRES(x,res) DX8_Assert(); res = DX8Wrapper::_Get_D3D_Device8()->x; DX8_ErrorCode(res); number_of_DX8_calls++;
 #define DX8CALL(x) DX8_Assert(); DX8_ErrorCode(DX8Wrapper::_Get_D3D_Device8()->x); number_of_DX8_calls++;
 #define DX8CALL_D3D(x) DX8_Assert(); DX8_ErrorCode(DX8Wrapper::_Get_D3D8()->x); number_of_DX8_calls++;
 #define DX8_THREAD_ASSERT() if (_DX8SingleThreaded) { WWASSERT_PRINT(DX8Wrapper::_Get_Main_Thread_ID()==ThreadClass::Get_Current_Thread_ID(),"DX8Wrapper::DX8 calls must be called from the main thread!"); }
 #else
+#define DX8_THREAD_ASSERT() ;
+#define DX8CALL(x) ((void)0)
+#define DX8CALL_HRES(x,res) do {} while(0)
+#define DX8CALL_D3D(x) ((void)0)
+#endif
+#else
+#if defined(_WIN32)
 #define DX8CALL_HRES(x,res) res = DX8Wrapper::_Get_D3D_Device8()->x; number_of_DX8_calls++;
 #define DX8CALL(x) DX8Wrapper::_Get_D3D_Device8()->x; number_of_DX8_calls++;
 #define DX8CALL_D3D(x) DX8Wrapper::_Get_D3D8()->x; number_of_DX8_calls++;
 #define DX8_THREAD_ASSERT() ;
+#else
+#define DX8CALL_HRES(x,res) do {} while(0)
+#define DX8CALL(x) ((void)0)
+#define DX8CALL_D3D(x) ((void)0)
+#define DX8_THREAD_ASSERT() ;
+#endif
 #endif
 
 struct RenderStateStruct
@@ -716,9 +734,13 @@ WWINLINE void DX8Wrapper::Set_DX8_Texture(unsigned int stage, IDirect3DBaseTextu
 
 	SNAPSHOT_SAY(("DX8 - SetTexture(%x) \n",texture));
 
+#if defined(_WIN32)
 	if (Textures[stage]) Textures[stage]->Release();
+#endif
 	Textures[stage] = texture;
+#if defined(_WIN32)
 	if (Textures[stage]) Textures[stage]->AddRef();
+#endif
 	DX8CALL(SetTexture(stage, texture));
 	DX8_RECORD_TEXTURE_CHANGE();
 }
