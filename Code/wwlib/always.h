@@ -24,11 +24,11 @@
  *                                                                                             *
  *                     $Archive:: /Commando/Code/wwlib/always.h                               $*
  *                                                                                             *
- *                      $Author:: Steve_t                                                     $*
+ *                      $Author:: Steve_t                                                     *
  *                                                                                             *
- *                     $Modtime:: 8/28/01 3:21p                                               $*
+ *                     $Modtime:: 8/28/01 3:21p                                               *
  *                                                                                             *
- *                    $Revision:: 13                                                          $*
+ *                    $Revision:: 13                                                          *
  *                                                                                             *
  *---------------------------------------------------------------------------------------------*
  * Functions:                                                                                  *
@@ -162,6 +162,80 @@ __forceinline unsigned int _byteswap_ulong(unsigned int value)
 #ifndef _alloca
 #define _alloca(size) alloca(size)
 #endif
+
+// Windows GDI handle stubs for non-Windows builds
+#ifndef HFONT
+  typedef struct HFONT__ { int unused; } *HFONT;
+#endif
+#ifndef HBITMAP
+  typedef struct HBITMAP__ { int unused; } *HBITMAP;
+#endif
+#ifndef HDC
+  typedef struct HDC__ { int unused; } *HDC;
+#endif
+
+// Windows path constants for non-Windows builds
+#ifndef _MAX_FNAME
+  #define _MAX_FNAME 256
+#endif
+#ifndef _MAX_EXT
+  #define _MAX_EXT 256
+#endif
+#ifndef _MAX_DRIVE
+  #define _MAX_DRIVE 4
+#endif
+#ifndef _MAX_DIR
+  #define _MAX_DIR 256
+#endif
+
+// _splitpath implementation for non-Windows
+#include <string.h>
+static inline void _splitpath(const char *path, char *drive, char *dir, char *fname, char *ext)
+{
+    if (drive) drive[0] = '\0';
+    if (dir) dir[0] = '\0';
+    if (fname) fname[0] = '\0';
+    if (ext) ext[0] = '\0';
+    if (!path) return;
+
+    const char *last_slash = strrchr(path, '/');
+    if (!last_slash) last_slash = strrchr(path, '\\');
+    const char *last_dot = strrchr(path, '.');
+
+    if (last_dot && last_slash && last_dot < last_slash) last_dot = NULL;
+
+    if (drive) drive[0] = '\0';
+
+    if (last_slash) {
+        if (dir) {
+            size_t len = last_slash - path + 1;
+            if (len >= _MAX_DIR) len = _MAX_DIR - 1;
+            strncpy(dir, path, len);
+            dir[len] = '\0';
+        }
+        if (fname) {
+            size_t len = last_dot ? (size_t)(last_dot - last_slash - 1) : strlen(last_slash + 1);
+            if (len >= _MAX_FNAME) len = _MAX_FNAME - 1;
+            strncpy(fname, last_slash + 1, len);
+            fname[len] = '\0';
+        }
+    } else {
+        if (dir) dir[0] = '\0';
+        if (fname) {
+            size_t len = last_dot ? (size_t)(last_dot - path) : strlen(path);
+            if (len >= _MAX_FNAME) len = _MAX_FNAME - 1;
+            strncpy(fname, path, len);
+            fname[len] = '\0';
+        }
+    }
+
+    if (ext && last_dot) {
+        size_t len = strlen(last_dot);
+        if (len >= _MAX_EXT) len = _MAX_EXT - 1;
+        strncpy(ext, last_dot, len);
+        ext[len] = '\0';
+    }
+}
 #endif // !_WIN32
 
-#endif
+#endif // ALWAYS_H

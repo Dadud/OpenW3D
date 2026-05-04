@@ -9,7 +9,6 @@ if(WIN32)
     FetchContent_Declare(
         openal-soft
         URL https://github.com/kcat/openal-soft/releases/download/1.23.1/openal-soft-1.23.1-win64.zip
-        URL_HASH SHA256=73d4d02b0e65c9c4e3c7c8e0c3c1c0e5c7e5f3e4e9e0e8e1e3e5e7e9e1e3e5
     )
     FetchContent_MakeAvailable(openal-soft)
 

@@ -73,6 +73,7 @@ add_feature_info(BGFXBackend ENABLE_BGFX_BACKEND "Build with BGFX backend")
 cmake_dependent_option(WANT_DX9 "Build with native DirectX 9 backend on Windows." ON "WIN32 AND NOT ENABLE_BGFX_BACKEND" OFF)
 add_feature_info(DX9Backend WANT_DX9 "Build with DX9 backend")
 
+# Optional Qt tooling (WWConfigQt)
 option(W3D_BUILD_QT_TOOLS "Build Qt-based GUI tools." OFF)
 add_feature_info(QtTools W3D_BUILD_QT_TOOLS "Build Qt front-end tools")
 
@@ -103,6 +104,9 @@ endif()
 message(STATUS "W3D_BUILD_OPTION_SDL3 = ${W3D_BUILD_OPTION_SDL3}")
 if(W3D_BUILD_OPTION_SDL3)
     include(sdl3)
+endif()
+
+if(W3D_BUILD_OPTION_SDL3)
     add_compile_definitions(-DOPENW3D_SDL3=1)
 elseif(WIN32)
     add_compile_definitions(-DOPENW3D_WIN32=1)

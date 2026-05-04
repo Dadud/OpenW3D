@@ -99,6 +99,10 @@ private:
 	using ThreadHandle = SDL_Thread *;
 	using InternalThreadFunctionReturnType = int;
 #define INTERNAL_THREAD_FUNCTION_CALL_CONVENTION SDLCALL
+#else
+	using ThreadHandle = void*;
+	using InternalThreadFunctionReturnType = void*;
+#define INTERNAL_THREAD_FUNCTION_CALL_CONVENTION
 #endif
 	static InternalThreadFunctionReturnType INTERNAL_THREAD_FUNCTION_CALL_CONVENTION Internal_Thread_Function(void *param);
 	ThreadHandle mHandle;
