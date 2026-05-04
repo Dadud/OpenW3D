@@ -60,6 +60,10 @@ add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build with OpenAL")
 cmake_dependent_option(ENABLE_BGFX_BACKEND "Build with BGFX modern graphics backend." OFF "NOT WIN32" OFF)
 add_feature_info(BGFXBackend ENABLE_BGFX_BACKEND "Build with BGFX backend")
 
+# Do we want the native DX9 backend on Windows? (only relevant when BGFX is OFF)
+cmake_dependent_option(WANT_DX9 "Build with native DirectX 9 backend on Windows." ON "WIN32 AND NOT ENABLE_BGFX_BACKEND" OFF)
+add_feature_info(DX9Backend WANT_DX9 "Build with DX9 backend")
+
 if(NOT WIN32)
     add_compile_definitions(__cdecl=)
     add_compile_definitions(__stdcall=)
