@@ -59,4 +59,5 @@ IDL_*.loc
 .clang-format
 /.vscode
 /.vs
-/build*
+/build/
+/build-*/
