@@ -73,6 +73,9 @@ add_feature_info(BGFXBackend ENABLE_BGFX_BACKEND "Build with BGFX backend")
 cmake_dependent_option(WANT_DX9 "Build with native DirectX 9 backend on Windows." ON "WIN32 AND NOT ENABLE_BGFX_BACKEND" OFF)
 add_feature_info(DX9Backend WANT_DX9 "Build with DX9 backend")
 
+option(W3D_BUILD_QT_TOOLS "Build Qt-based GUI tools." OFF)
+add_feature_info(QtTools W3D_BUILD_QT_TOOLS "Build Qt front-end tools")
+
 if(NOT WIN32)
     add_compile_definitions(__cdecl=)
     add_compile_definitions(__stdcall=)
@@ -109,6 +112,16 @@ else()
 endif()
 
 add_compile_definitions(-DWEBBROWSER_ENABLED=$<BOOL:${W3D_BUILD_OPTION_WEBBROWSER}>)
+
+if(W3D_BUILD_QT_TOOLS)
+    if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
+        message(FATAL_ERROR "Qt tooling is only supported for 64-bit builds. Configure with a 64-bit generator or set W3D_BUILD_QT_TOOLS=OFF.")
+    endif()
+    set(CMAKE_AUTOMOC ON)
+    set(CMAKE_AUTOUIC ON)
+    set(CMAKE_AUTORCC ON)
+    include(qt_tools)
+endif()
 
 if(WIN32)
     # Do we want to build with bink for video decoding?
