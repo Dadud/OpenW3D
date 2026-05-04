@@ -21,6 +21,8 @@ private:
 	using HandleType = HANDLE;
 #elif defined(OPENW3D_SDL3)
 	using HandleType = SDL_Process *;
+#else
+	using HandleType = int; // POSIX pid
 #endif
 
 	Process(HandleType handle, int pid) : mHandle(handle), mPid(pid) {}
