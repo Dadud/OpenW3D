@@ -327,7 +327,7 @@ bool StringClass::Copy_Wide (const unichar_t *source)
 		}
 
 		WWDEBUG_SAY(("Conversion from utf-16 to utf-8 failed\n"));
-#else
+#elif defined(_WIN32)
 		int  length;
 
 		length = WideCharToMultiByte (CP_UTF8, 0 , source, -1, nullptr, 0, nullptr, nullptr);
@@ -347,6 +347,24 @@ bool StringClass::Copy_Wide (const unichar_t *source)
 		}
 
 		return (length > 0);
+#else
+		// POSIX: use wcsrtombs for wchar_t to UTF-8 conversion
+		mbstate_t state;
+		memset(&state, 0, sizeof(state));
+		size_t length = wcsrtombs(nullptr, &source, 0, &state);
+		if (length != (size_t)-1 && length > 0) {
+			size_t buffer_length = length + 1; // include null terminator
+			memset(&state, 0, sizeof(state));
+			wcsrtombs(Get_Buffer(buffer_length), &source, buffer_length, &state);
+			Store_Length(length);
+			return true;
+		}
+
+		if(length == (size_t)-1 || length == 0) {
+			WWDEBUG_SAY(("Conversion from utf-16 to utf-8 failed"));
+		}
+
+		return (length != (size_t)-1 && length > 0);
 #endif
 	}
 

@@ -5,6 +5,12 @@
 #include <windows.h>
 #elif defined(OPENW3D_SDL3)
 #include <SDL3/SDL_timer.h>
+#else
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+#include <errno.h>
+#include <string.h>
 #endif
 
 #include "debug.h"
@@ -16,6 +22,10 @@ Process::~Process()
 		CloseHandle(mHandle);
 #elif defined(OPENW3D_SDL3)
 		SDL_DestroyProcess(mHandle);
+#else
+		// POSIX: reap child if not already waited
+		int status;
+		waitpid(mHandle, &status, WNOHANG);
 #endif
 	}
 }
@@ -59,6 +69,23 @@ bool Process::Wait(bool block)
 	mReturnCode = exit_code;
 	mHandle = nullptr;
 	return true;
+#else
+	// POSIX
+	int status;
+	pid_t result = waitpid(mHandle, &status, block ? 0 : WNOHANG);
+	if (result == -1) {
+		return false;
+	}
+	if (result == 0 && !block) {
+		return false; // still running
+	}
+	if (WIFEXITED(status)) {
+		mReturnCode = WEXITSTATUS(status);
+	} else {
+		mReturnCode = -1;
+	}
+	mHandle = 0;
+	return true;
 #endif
 }
 
@@ -83,6 +110,14 @@ bool Process::Kill()
 	SDL_DestroyProcess(mHandle);
 	mHandle = nullptr;
 	mReturnCode = -1;
+	return true;
+#else
+	// POSIX
+	if (kill(mHandle, SIGTERM) == -1) {
+		return false;
+	}
+	mReturnCode = -1;
+	mHandle = 0;
 	return true;
 #endif
 }
@@ -123,5 +158,17 @@ Process *ProcessManager::Create_Process(const char * const *args)
 	auto props = SDL_GetProcessProperties(sdl_process);
 	auto pid = SDL_GetNumberProperty(props, SDL_PROP_PROCESS_PID_NUMBER, -1);
 	return new Process(sdl_process, pid);
+#else
+	// POSIX
+	pid_t pid = fork();
+	if (pid == -1) {
+		return nullptr;
+	}
+	if (pid == 0) {
+		// Child process
+		execvp(args[0], const_cast<char * const *>(args));
+		_exit(127); // exec failed
+	}
+	return new Process(pid, pid);
 #endif
 }

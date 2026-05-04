@@ -39,7 +39,16 @@ if(SYNTAX_CHECK_ONLY)
 endif(SYNTAX_CHECK_ONLY)
 
 # Do we want to build with SDL3 for windows and inputs?
-cmake_dependent_option(W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3." OFF WIN32 ON)
+# SDL3: optional everywhere. Default ON for Linux/macOS, OFF for Windows.
+# User can override with -DW3D_BUILD_OPTION_SDL3=ON/OFF
+if(NOT DEFINED W3D_BUILD_OPTION_SDL3)
+    if(WIN32)
+        set(W3D_BUILD_OPTION_SDL3 OFF)
+    else()
+        set(W3D_BUILD_OPTION_SDL3 ON)
+    endif()
+endif()
+set(W3D_BUILD_OPTION_SDL3 ${W3D_BUILD_OPTION_SDL3} CACHE BOOL "Build OpenW3D with SDL3.")
 add_feature_info(SDL3Build W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3")
 
 # Do we want to build with webbrowser?
@@ -88,13 +97,15 @@ if(ENABLE_BGFX_BACKEND)
     include(bgfx)
 endif()
 
+message(STATUS "W3D_BUILD_OPTION_SDL3 = ${W3D_BUILD_OPTION_SDL3}")
 if(W3D_BUILD_OPTION_SDL3)
     include(sdl3)
     add_compile_definitions(-DOPENW3D_SDL3=1)
 elseif(WIN32)
     add_compile_definitions(-DOPENW3D_WIN32=1)
 else()
-    message(FATAL_ERROR "Invalid backend")
+    message(WARNING "No SDL3 found — building headless/null backend only. Install libsdl3-dev for full client.")
+    add_compile_definitions(-DOPENW3D_NULL=1)
 endif()
 
 add_compile_definitions(-DWEBBROWSER_ENABLED=$<BOOL:${W3D_BUILD_OPTION_WEBBROWSER}>)
@@ -124,8 +135,11 @@ if(WIN32)
         include(icu)
     endif()
 else()
-    set(W3D_BUILD_OPTION_ICU ON)
-    include(icu)
+    option(W3D_BUILD_OPTION_ICU "Build with ICU." ON)
+    add_feature_info(ICUBuild W3D_BUILD_OPTION_ICU "Build OpenW3D with ICU")
+    if(W3D_BUILD_OPTION_ICU)
+        include(icu)
+    endif()
 endif()
 
 include(dx9)
