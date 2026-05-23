@@ -107,7 +107,7 @@
 #include <ini.h>
 #include <windows.h>
 #include <stdio.h>
-#include <d3d9types.h>
+#include "ww3d_platform.h"
 #include "texture.h"
 #include "wwprofile.h"
 #include "assetstatus.h"

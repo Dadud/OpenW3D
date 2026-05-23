@@ -37,7 +37,7 @@
 
 #include "texture.h"
 
-#include <d3d9.h>
+#include "ww3d_platform.h"
 #include <stdio.h>
 #include <d3dx9core.h>
 #include "dx8wrapper.h"

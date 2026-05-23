@@ -45,11 +45,7 @@
 
 #include "always.h"
 #include "dllist.h"
-#if defined(_WIN32)
-#include <d3d9.h>
-#else
 #include "ww3d_platform.h"
-#endif
 #include "matrix4.h"
 #include "statistics.h"
 #include "wwstring.h"

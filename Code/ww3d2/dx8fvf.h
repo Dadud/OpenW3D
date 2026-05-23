@@ -46,7 +46,7 @@
 
 #include "always.h"
 #if defined(_WIN32)
-#include <d3d9.h>
+#include "ww3d_platform.h"
 #endif
 #ifdef WWDEBUG
 #include "wwdebug.h"

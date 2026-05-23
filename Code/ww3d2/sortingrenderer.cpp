@@ -22,7 +22,7 @@
 #include "dx8wrapper.h"
 #include "vertmaterial.h"
 #include "texture.h"
-#include <d3d9.h>
+#include "ww3d_platform.h"
 #include <d3dx9math.h>
 #include "statistics.h"
 #include <wwprofile.h>

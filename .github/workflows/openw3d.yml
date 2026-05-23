@@ -112,6 +112,7 @@ jobs:
 
     steps:
 
+    - uses: actions/checkout@v6
     - name: 'Set up MSYS2'
       if: ${{ !!matrix.msys2 }}
       uses: msys2/setup-msys2@v2
@@ -149,7 +150,6 @@ jobs:
           "https://github.com/doitsujin/dxvk/releases/download/v2.7.1/dxvk-native-2.7.1-steamrt-sniper.tar.gz"
 
         sudo tar -xvf /tmp/dxvk-native.tar.gz -C /
-    - uses: actions/checkout@v6
     - name: 'Init submodules'
       if: ${{ !!matrix.init-submodules }}
       run: git submodule update --init --recursive
