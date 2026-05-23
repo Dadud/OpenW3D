@@ -62,6 +62,11 @@ add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build OpenW3D with OpenAL"
 option(ENABLE_BGFX_BACKEND "Build with BGFX modern graphics backend." OFF)
 add_feature_info(BGFXBackend ENABLE_BGFX_BACKEND "Build with BGFX backend")
 
+# bgfx genie builds use /MT; match that when linking prebuilt bgfx on MSVC.
+if(ENABLE_BGFX_BACKEND AND MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
+
 # Native DX9 mesh/texture path (Windows always; Linux when BGFX uses dxvk for shared D3D types).
 cmake_dependent_option(WANT_DX9 "Build with native DirectX 9 backend on Windows." ON "WIN32" OFF)
 add_feature_info(DX9Backend WANT_DX9 "Build with DX9 backend")
