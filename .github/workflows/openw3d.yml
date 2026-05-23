@@ -29,6 +29,14 @@ jobs:
             cmake-args: -GNinja -DCMAKE_BUILD_TYPE=Release
             shell: pwsh
             arch: x64
+          - name: MSVC x64 BGFX
+            os: windows-latest
+            cmake-args: -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_BGFX_BACKEND=ON
+            shell: pwsh
+            arch: x64
+            init-submodules: true
+            build-bgfx-win: true
+            build-args: --target ww3d2 renegade
           - name: MinGW x86
             os: windows-latest
             cmake-args: -DW3D_BUILD_OPTION_FFMPEG=ON -GNinja -DCMAKE_BUILD_TYPE=Release
@@ -66,9 +74,7 @@ jobs:
             os: ubuntu-latest
             sdl3: true
             linux: true
-            init-submodules: true
-            cmake-args: -DENABLE_BGFX_BACKEND=ON -DW3D_BUILD_OPTION_OPENAL=ON -DW3D_BUILD_OPTION_FFMPEG=ON -DCMAKE_BUILD_TYPE=Release
-            build-args: >-
+            build-args: >
                --parallel
                --target
                scripts
@@ -79,17 +85,15 @@ jobs:
                wwdebug
                wwbitpack
                wwtranslatedb
-               ww3d2
-               ww3d2e
-               renegade
             shell: bash
           - name: Linux x64 BGFX
             os: ubuntu-latest
             sdl3: true
             linux: true
+            linux-bgfx: true
             init-submodules: true
             build-bgfx: true
-            cmake-args: -DENABLE_BGFX_BACKEND=ON -DW3D_BUILD_OPTION_OPENAL=ON -DW3D_BUILD_OPTION_FFMPEG=ON -DCMAKE_BUILD_TYPE=Release
+            cmake-args: -DENABLE_BGFX_BACKEND=ON -DCMAKE_BUILD_TYPE=Release
             build-args: >-
                --parallel
                --target
@@ -137,22 +141,31 @@ jobs:
       run: |
         sudo apt update -qq > /dev/null
         sudo apt install -qq libavcodec-dev libavformat-dev libavutil-dev libswresample-dev libswscale-dev libopenal-dev > /dev/null
+        if [ -n "${{ matrix.linux-bgfx }}" ]; then
+          sudo apt install -qq libvulkan-dev libgl-dev libx11-dev libxrandr-dev libxcursor-dev > /dev/null
+        fi
         wget --no-verbose \
           -O /tmp/dxvk-native.tar.gz \
           "https://github.com/doitsujin/dxvk/releases/download/v2.7.1/dxvk-native-2.7.1-steamrt-sniper.tar.gz"
 
         sudo tar -xvf /tmp/dxvk-native.tar.gz -C /
     - uses: actions/checkout@v6
-      with:
-        submodules: recursive
-    - name: 'Init submodules (backup)'
+    - name: 'Init submodules'
       if: ${{ !!matrix.init-submodules }}
       run: git submodule update --init --recursive
-    - name: 'Build bgfx (Linux BGFX variant)'
+    - name: 'Build bgfx (Linux)'
       if: ${{ !!matrix.build-bgfx }}
       run: |
         cd external/bgfx && make linux-gcc-release64
       timeout-minutes: 10
+    - name: 'Build bgfx (Windows MSVC)'
+      if: ${{ !!matrix.build-bgfx-win }}
+      shell: pwsh
+      run: |
+        cd external/bgfx
+        ..\bx\tools\bin\windows\genie.exe vs2022
+        msbuild .build\projects\vs2022\bgfx.sln /p:Configuration=Release /p:Platform=x64 /m
+      timeout-minutes: 15
     - name: 'CMake (configure)'
       env:
         W3D_COMPILER_FLAGS:  ${{ matrix.options }}

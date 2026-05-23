@@ -169,37 +169,14 @@ if(BGFX_LIB_FOUND)
 else()
     if(WIN32)
         set(BGFX_BUILD_HELP "  1. cd ${BGFX_DIR}\n  2. ..\\..\\bx\\tools\\bin\\windows\\genie.exe vs2022\n  3. Open .build\\projects\\vs2022\\bgfx.sln in Visual Studio and build\n  4. Rebuild this project with -DENABLE_BGFX_BACKEND=ON")
-        set(BGFX_STUB_EXT "lib")
     else()
         set(BGFX_BUILD_HELP "  1. cd ${BGFX_DIR}\n  2. make linux-gcc-release64\n  3. Rebuild this project with -DENABLE_BGFX_BACKEND=ON")
-        set(BGFX_STUB_EXT "a")
     endif()
 
-    message(WARNING "BGFX library not found. The bgfx backend will compile but won't link.\n"
+    message(FATAL_ERROR "BGFX library not found but ENABLE_BGFX_BACKEND=ON.\n"
         "\n"
         "To build bgfx:\n"
-        "${BGFX_BUILD_HELP}\n"
-        "\n"
-        "Without the library, only the null backend can be used.")
-
-    add_library(bgfximpl STATIC IMPORTED GLOBAL)
-    # Create a minimal valid static library stub so the linker accepts it
-    set(BGFX_STUB_LIB "${CMAKE_BINARY_DIR}/libbgfx_stub.${BGFX_STUB_EXT}")
-    set_target_properties(bgfximpl PROPERTIES IMPORTED_LOCATION "${BGFX_STUB_LIB}")
-    if(NOT EXISTS "${BGFX_STUB_LIB}")
-        if(WIN32)
-            file(WRITE "${BGFX_STUB_LIB}" "\n")
-        else()
-            # Create a valid ar archive with an empty symbol table
-            find_program(AR_EXECUTABLE NAMES ar REQUIRED)
-            file(WRITE "${CMAKE_BINARY_DIR}/.bgfx_stub_empty.c" "")
-            execute_process(COMMAND ${AR_EXECUTABLE} rcs "${BGFX_STUB_LIB}" "${CMAKE_BINARY_DIR}/.bgfx_stub_empty.c"
-                RESULT_VARIABLE AR_RESULT)
-            if(NOT AR_RESULT EQUAL 0)
-                message(FATAL_ERROR "Failed to create stub static library for bgfx")
-            endif()
-        endif()
-    endif()
+        "${BGFX_BUILD_HELP}\n")
 endif()
 
 message(STATUS "BGFX backend enabled")
