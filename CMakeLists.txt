@@ -59,11 +59,11 @@ add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build OpenW3D with OpenAL"
 
 # Do we want to build with the BGFX graphics backend?
 # Requires: git submodule update --init --recursive (bgfx, bx, bimg)
-cmake_dependent_option(ENABLE_BGFX_BACKEND "Build with BGFX modern graphics backend." OFF "NOT WIN32" OFF)
+option(ENABLE_BGFX_BACKEND "Build with BGFX modern graphics backend." OFF)
 add_feature_info(BGFXBackend ENABLE_BGFX_BACKEND "Build with BGFX backend")
 
-# Do we want the native DX9 backend on Windows? (only relevant when BGFX is OFF)
-cmake_dependent_option(WANT_DX9 "Build with native DirectX 9 backend on Windows." ON "WIN32 AND NOT ENABLE_BGFX_BACKEND" OFF)
+# Native DX9 mesh/texture path (Windows always; Linux when BGFX uses dxvk for shared D3D types).
+cmake_dependent_option(WANT_DX9 "Build with native DirectX 9 backend on Windows." ON "WIN32" OFF)
 add_feature_info(DX9Backend WANT_DX9 "Build with DX9 backend")
 
 option(W3D_ALLOW_MISSING_SDL3 "Allow configure without SDL3 (local dev only; never use in CI)." OFF)

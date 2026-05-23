@@ -83,6 +83,7 @@ set(WW3D2_SRC
     w3d_dep.cpp
     w3d_util.cpp
     ww3dformat.cpp
+    ww3d.cpp
     nullbackend.cpp
 )
 
@@ -110,6 +111,7 @@ set(WW3D2_DX8_SRC
 set(WW3D2_WIN32_SRC
     framgrab.cpp
     textureloader.cpp
+    missingtexture.cpp
 )
 
 # DX8 backend headers (need to be in include path even when not building)
@@ -242,8 +244,8 @@ set(WW3D2_HDR
     nullbackend.h
 )
 
-# Conditionally include DX8 sources
-if(WIN32 AND WANT_DX9)
+# DX8/D3D9 mesh and texture path: Windows DX9 builds, and BGFX builds (device via BGFX, draw via legacy DX8 until ww3d is fully abstracted).
+if(ENABLE_BGFX_BACKEND OR (WIN32 AND WANT_DX9))
     list(APPEND WW3D2_SRC ${WW3D2_DX8_SRC})
     list(APPEND WW3D2_HDR ${WW3D2_DX8_HDR})
 endif()
@@ -296,6 +298,9 @@ if(ENABLE_BGFX_BACKEND)
 endif()
 
 # Backend selection defines
+if(ENABLE_BGFX_BACKEND OR (WIN32 AND WANT_DX9))
+    target_compile_definitions(ww3d2 PRIVATE WW3D_DX8=1)
+endif()
 if(ENABLE_BGFX_BACKEND)
     target_compile_definitions(ww3d2 PRIVATE WW3D_BGFX_BACKEND=1)
 elseif(WIN32 AND WANT_DX9)

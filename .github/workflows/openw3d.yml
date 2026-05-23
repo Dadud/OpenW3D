@@ -156,8 +156,8 @@ jobs:
     - name: 'Build bgfx (Linux)'
       if: ${{ !!matrix.build-bgfx }}
       run: |
-        cd external/bgfx && make linux-gcc-release64
-      timeout-minutes: 10
+        cd external/bgfx && make -j$(nproc) linux-gcc-release64
+      timeout-minutes: 25
     - name: 'Build bgfx (Windows MSVC)'
       if: ${{ !!matrix.build-bgfx-win }}
       shell: pwsh
