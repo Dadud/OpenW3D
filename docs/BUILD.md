@@ -6,206 +6,189 @@
 |-----------|---------|-------------|
 | CMake | 3.25 | 3.28+ |
 | Compiler | C++20 | GCC 13, Clang 18, MSVC 17.10 |
-| Git | 2.40+ | with `git lfs` for large files |
+| Git | 2.40+ | with submodules for BGFX |
 | Game data | C&C Renegade retail `.mix` files | Latest patch (v1.037) |
 
 ### Linux
 
 ```bash
-# Install build tools and dependencies
 sudo apt install build-essential cmake ninja-build pkg-config
-sudo apt install libasound2-dev libpulse-dev    # OpenAL
-sudo apt install libavcodec-dev libavformat-dev libswscale-dev libavutil-dev  # FFmpeg
-sudo apt install libvulkan-dev                  # BGFX/Vulkan
+sudo apt install libasound2-dev libpulse-dev libopenal-dev
+sudo apt install libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev
+sudo apt install libsdl3-dev libvulkan-dev libgl-dev libx11-dev libxrandr-dev libxcursor-dev
 ```
 
 ### macOS
 
 ```bash
-brew install cmake ninja pkg-config
-brew install alsa-lib portaudio  # audio
-brew install ffmpeg               # video
-brew install vulkan-loader        # BGFX/Vulkan
+brew install cmake ninja pkg-config ffmpeg sdl3 vulkan-loader
 ```
 
 ### Windows
 
-- Visual Studio 2022 17.x with "Desktop development with C++"
-- OR MinGW-w64 (via MSYS2) with `pacman -S mingw-w64-x86_64-cmake ninja`
+- **MSVC**: Visual Studio 2022 17.x with "Desktop development with C++"
+- **MSYS2**: `pacman -S mingw-w64-x86_64-{toolchain,cmake,ninja,ffmpeg,pkg-config}`  
+  Also install **clang64** env for the LLVM matrix job: `pacman -S mingw-w64-clang-x86_64-toolchain`
+- **SDL3 on Windows**: use [setup-sdl](https://github.com/libsdl-org/setup-sdl) in CI, or `-DW3D_BUILD_OPTION_SDL3=ON` with SDL3 installed
 
 ---
 
 ## Submodules
 
-Fetch all submodules after cloning:
+Required for BGFX builds only:
 
 ```bash
 git submodule update --init --recursive
 ```
 
-This pulls: `bgfx`, `bx`, `bimg` (the BGFX library stack).
-
 ---
 
-## Build Variants
+## Standard builds (matches CI)
 
-### 1. Linux — NullBackend (no GPU, headless server)
+These mirror [`.github/workflows/openw3d.yml`](../.github/workflows/openw3d.yml).
 
-```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-```
-
-No GPU required. Produces headless server binaries.
-
-### 2. Linux — BGFX with Vulkan
-
-```bash
-cmake -S . -B build \
-  -DENABLE_BGFX_BACKEND=ON \
-  -DCMAKE_BUILD_TYPE=Release \
-  -DW3D_BUILD_OPTION_OPENAL=ON \
-  -DW3D_BUILD_OPTION_FFMPEG=ON
-cmake --build build --parallel
-```
-
-Requires `libvulkan-dev` installed. BGFX will auto-select Vulkan as the default renderer on Linux.
-
-### 3. Linux — BGFX with OpenGL (fallback)
-
-```bash
-cmake -S . -B build \
-  -DENABLE_BGFX_BACKEND=ON \
-  -DBGFX_BACKEND=gl \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build --parallel
-```
-
-### 4. Windows — MSVC + DX9 native
+### MSVC x86 / x64
 
 ```powershell
-cmake -S . -B build `
-  -G "Visual Studio 17 2022" `
-  -Ax64 `
-  -DCMAKE_BUILD_TYPE=Release `
-  -DW3D_BUILD_OPTION_FFMPEG=ON
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
 ```
 
-### 5. Windows — MinGW + BGFX
+### MSYS2 MinGW x64 / x86 / clang64
 
 ```bash
-# In MSYS2 mingw64 shell
-cmake -S . -B build `
-  -G Ninja `
-  -DCMAKE_BUILD_TYPE=Release `
-  -DENABLE_BGFX_BACKEND=ON `
-  -DW3D_BUILD_OPTION_FFMPEG=ON `
-  -DW3D_BUILD_OPTION_SDL3=ON
-cmake --build build --parallel
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DW3D_BUILD_OPTION_FFMPEG=ON
+cmake --build build --parallel --target combat combate renegade renegadeserver ww3d2e wwaudioe wwphyse
 ```
 
-### 6. Windows — MSVC + BGFX
+### MinGW x64 + SDL3 (tools/input; runtime SDL window on fork)
+
+```bash
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DW3D_BUILD_OPTION_FFMPEG=ON -DW3D_BUILD_OPTION_SDL3=ON
+cmake --build build --parallel --target renegade
+```
+
+### Linux x64 (SDL3, no BGFX)
+
+```bash
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel --target scripts bandtest wwsaveload wwmath wwutil wwdebug wwbitpack wwtranslatedb
+```
+
+### Qt tools (WWConfigQt, x64 Windows)
 
 ```powershell
-cmake -S . -B build `
-  -G "Visual Studio 17 2022" `
-  -Ax64 `
-  -DCMAKE_BUILD_TYPE=Release `
-  -DENABLE_BGFX_BACKEND=ON `
-  -DW3D_BUILD_OPTION_FFMPEG=ON
-cmake --build build --parallel
+cmake --preset windows-qt -DW3D_BUILD_QT_TOOLS=ON
+cmake --build --preset windows-qt
 ```
 
 ---
 
-## CMake Options
+## BGFX builds (fork renderer track)
+
+`ENABLE_BGFX_BACKEND=ON` requires **prebuilt** `external/bgfx` libraries. CMake will **fail** if they are missing (no stub link).
+
+### Linux — BGFX + Vulkan (CI: `Linux x64 BGFX`)
+
+```bash
+git submodule update --init --recursive
+cd external/bgfx && make linux-gcc-release64 && cd ../..
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_BGFX_BACKEND=ON
+cmake --build build --parallel --target renegade ww3d2
+```
+
+### Windows — MSVC + BGFX (CI: `MSVC x64 BGFX`)
+
+```powershell
+git submodule update --init --recursive
+cd external\bgfx
+..\bx\tools\bin\windows\genie.exe vs2022
+msbuild .build\projects\vs2022\bgfx.sln /p:Configuration=Release /p:Platform=x64 /m
+cd ..\..
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DENABLE_BGFX_BACKEND=ON
+cmake --build build --parallel --target renegade ww3d2
+```
+
+Verify before running:
+
+```powershell
+.\scripts\verify-bgfx-build.ps1 -BuildDir build
+```
+
+### Windows — MinGW + BGFX
+
+Same as MSVC after building bgfx with the VS toolchain (GENie output is shared under `external/bgfx/.build/`).
+
+### Linux — headless / FDS (NullBackend)
+
+```bash
+cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -DW3D_ALLOW_MISSING_SDL3=ON
+cmake --build build --parallel --target renegadeserver
+```
+
+No GPU required; WW3D uses `NullBackend` when BGFX and DX9 are off.
+
+---
+
+## SDL3: tools vs runtime window
+
+| Layer | Status |
+|-------|--------|
+| CMake + `find_package(SDL3)` | Upstream-aligned; `W3D_ALLOW_MISSING_SDL3` for local headless only |
+| Tools / Linux client input | `W3D_BUILD_OPTION_SDL3=ON` (default on non-Windows) |
+| Windows runtime `SDL_CreateWindow` | Fork: `OPENW3D_SDL3` path in `WINMAIN.CPP` + `SDL3_Pump_Events` in `msgloop.cpp` |
+
+---
+
+## CMake options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `CMAKE_BUILD_TYPE` | `Release` | `Debug`, `Release`, `RelWithDebInfo` |
-| `ENABLE_BGFX_BACKEND` | `OFF` (Win), `ON` (Linux) | Enable BGFX renderer |
-| `W3D_BUILD_OPTION_FFMPEG` | `ON` | FFmpeg for video/audio decode |
-| `W3D_BUILD_OPTION_OPENAL` | `ON` (non-Win), `OFF` (Win) | OpenAL spatial audio |
-| `W3D_BUILD_OPTION_SDL3` | `OFF` (Win only) | SDL3 for input/windowing |
-| `W3D_BUILD_OPTION_WEBBROWSER` | `ON` (Win only) | Embedded browser (requires IE) |
-| `W3D_TOOLS` | `ON` | Build mod tools (LevelEdit, etc.) |
-| `W3D_CLIENT` | `ON` | Build game client |
-| `W3D_FDS` | `ON` | Build free dedicated server |
+| `ENABLE_BGFX_BACKEND` | OFF (Win), ON (Linux dep.) | BGFX renderer; requires built `external/bgfx` |
+| `WANT_DX9` | ON when BGFX off (Win) | Native DX9 backend |
+| `W3D_BUILD_OPTION_SDL3` | OFF (Win), ON (else) | SDL3 window/input |
+| `W3D_ALLOW_MISSING_SDL3` | OFF | Headless configure without SDL3 (not for CI) |
+| `W3D_BUILD_OPTION_FFMPEG` | OFF (Win), ON (else) | FFmpeg decode |
+| `W3D_BUILD_OPTION_OPENAL` | ON when FFMPEG on | OpenAL audio |
+| `W3D_BUILD_QT_TOOLS` | OFF | WWConfigQt |
 
 ---
 
 ## Output
 
-Build artifacts land in:
-
 ```
-build/             # Libraries and intermediates
-Run/               # Final binaries (renegade.exe, combat.exe, etc.)
-build/shaders/     # Compiled BGFX shaders (.bin)
+build/             # Binaries and `build/shaders/*.bin` when BGFX enabled
+Run/               # Deploy dir for game data + executables
 ```
 
 ---
 
-## Game Data
+## Game data
 
-OpenW3D needs retail C&C Renegade `.mix` data files. Copy them from your installation:
-
-```
-# Linux/macOS
-cp /path/to/Renegade/*.mix  Run/
-
-# Windows — from the Run/ directory in this repo
-copy "C:\Program Files\EA Games\Command & Conquer Renegade\*.mix"
-```
-
-Without `.mix` files, the engine will start but display missing-asset placeholders.
+Copy retail Renegade `.mix` files into `Run/`. Without them the client starts but assets are missing.
 
 ---
 
-## Shader Compilation (BGFX)
+## Shader compilation (BGFX)
 
-BGFX shaders (`.sc` source files in `Code/ww3d2/backends/bgfx/shaders/source/`) are compiled to `.bin` at build time via the `shaderc` tool, built as part of the BGFX library.
-
-To rebuild shaders after modifying `.sc` files:
-
-```bash
-# Build bgfx + shaderc first
-cd external/bgfx
-make linux-gcc-release64   # or: make win64-vs2019
-
-# Then rebuild OpenW3D shaders
-cmake --build build --target shaderc  # if available
-cmake --build build                     # triggers shader rules
-```
-
-The compiled shaders land in `build/shaders/` and are loaded at runtime by `ShaderVariantCache`.
+Shaders compile at OpenW3D build time via `shaderc` from the bgfx submodule. Rebuild bgfx after editing `.sc` files under `Code/ww3d2/backends/bgfx/shaders/source/`.
 
 ---
 
 ## Troubleshooting
 
+### `BGFX library not found`
+
+Build bgfx first (see BGFX sections above). Stub libraries are no longer created.
+
 ### `bx.h not found`
 
-```bash
-git submodule update --init --recursive
-```
+`git submodule update --init --recursive`
 
-### BGFX fails to build on Linux
+### SDL3 not found (local dev)
 
-```bash
-sudo apt install libvulkan-dev glslang-dev
-cd external/bgfx && make linux-gcc-release64
-```
+Install SDL3 or pass `-DW3D_ALLOW_MISSING_SDL3=ON` for headless-only work — never in CI.
 
-### MSVC linker errors about `_lrotl`
+### MSVC `_lrotl` linker errors
 
-Update to CMake 3.28+. Older versions had a bug where `_lrotl` wasn't found in the CRT on Windows.
-
-### WWDEBUG asserts fire in release build
-
-Ensure `CMAKE_BUILD_TYPE` is exactly `Release` — the `RelWithDebInfo` configuration still enables some debug checks.
-
-### "Missing DirectX SDK" on Windows
-
-The DX9 SDK is fetched automatically via CMake FetchContent on MSVC. MinGW requires the system DirectX SDK packages from MSYS2 (`mingw-w64-x86_64-dx9-sdk`).
+Use CMake 3.28+.

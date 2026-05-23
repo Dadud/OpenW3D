@@ -40,8 +40,13 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #include	"always.h"
+#include	"msgloop.h"
 #include	"vector.h"
 #include	"win.h"
+
+#if defined(OPENW3D_SDL3)
+extern void SDL3_Pump_Events(void);
+#endif
 
 
 /*
@@ -96,6 +101,12 @@ bool (*Message_Intercept_Handler)(MSG &msg) = NULL;
  *=============================================================================================*/
 void Windows_Message_Handler(void)
 {
+#if !defined(_WIN32)
+#if defined(OPENW3D_SDL3)
+	SDL3_Pump_Events();
+#endif
+	return;
+#else
 	MSG msg;
 
 	/*
@@ -152,6 +163,11 @@ void Windows_Message_Handler(void)
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+
+#if defined(OPENW3D_SDL3)
+	SDL3_Pump_Events();
+#endif
+#endif
 }
 
 

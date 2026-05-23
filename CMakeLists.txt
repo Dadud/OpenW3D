@@ -66,6 +66,9 @@ add_feature_info(BGFXBackend ENABLE_BGFX_BACKEND "Build with BGFX backend")
 cmake_dependent_option(WANT_DX9 "Build with native DirectX 9 backend on Windows." ON "WIN32 AND NOT ENABLE_BGFX_BACKEND" OFF)
 add_feature_info(DX9Backend WANT_DX9 "Build with DX9 backend")
 
+option(W3D_ALLOW_MISSING_SDL3 "Allow configure without SDL3 (local dev only; never use in CI)." OFF)
+add_feature_info(AllowMissingSDL3 W3D_ALLOW_MISSING_SDL3 "Permit missing SDL3 at configure time")
+
 option(W3D_BUILD_QT_TOOLS "Build Qt-based GUI tools." OFF)
 add_feature_info(QtTools W3D_BUILD_QT_TOOLS "Build Qt front-end tools")
 
@@ -91,11 +94,16 @@ endif()
 
 if(W3D_BUILD_OPTION_SDL3)
     include(sdl3)
+endif()
+if(W3D_BUILD_OPTION_SDL3)
     add_compile_definitions(-DOPENW3D_SDL3=1)
 elseif(WIN32)
     add_compile_definitions(-DOPENW3D_WIN32=1)
+elseif(W3D_ALLOW_MISSING_SDL3)
+    message(WARNING "Building without SDL3 (OPENW3D_NULL). Install SDL3 for a full client.")
+    add_compile_definitions(-DOPENW3D_NULL=1)
 else()
-    message(FATAL_ERROR "Invalid backend")
+    message(FATAL_ERROR "No windowing backend: enable W3D_BUILD_OPTION_SDL3 or build on Windows.")
 endif()
 
 add_compile_definitions(-DWEBBROWSER_ENABLED=$<BOOL:${W3D_BUILD_OPTION_WEBBROWSER}>)

@@ -1,161 +1,98 @@
 # OpenW3D Task Tracker
 
 ## Legend
+
 - ✅ Done and verified
-- ⚠️ Blocked / needs decision
-- ⬜ Not started / untested
+- 🔄 Done in source; CI or runtime pending
+- ⬜ Not started / follow-up
 
 ---
 
 ## Track A — Build system
 
 - [x] A001: CMake migration
-- [x] A002: Windows build — `cmake/dx9.cmake` provides DX9 SDK path
-- [x] A003: Linux build — standard CMake, no special config needed
-- [x] A004: macOS build — cmake files present, **untested**
-- [x] A005: CI/CD — `openw3d.yml` runs on push/PR (`on: [push, pull_request]`)
-  - 7 matrix entries: MSVC x86/x64, MinGW x86/x64, MinGW x64 SDL3, Linux x64, Linux x64 BGFX
-  - Linux jobs: expanded to build ww3d2, ww3d2e, renegade + submodules recursive
-  - Linux BGFX variant: builds bgfx library then compiles with `-DENABLE_BGFX_BACKEND=ON`
-  - Submodule init: `actions/checkout` with `submodules: recursive` for all jobs
+- [x] A002: Windows DX9 via `cmake/dx9.cmake`
+- [x] A003: Linux build
+- [x] A004: macOS — **untested**
+- [x] A005: CI aligned with w3dhub (MSVC, MinGW x86/x64, **clang64**, SDL3) + fork BGFX jobs
+  - `Linux x64` — upstream tools subset (no BGFX)
+  - `Linux x64 BGFX` — submodules + `make linux-gcc-release64` + `ENABLE_BGFX_BACKEND=ON`
+  - `MSVC x64 BGFX` — GENie + MSBuild bgfx before configure
+- [x] A006: `cmake/bgfx.cmake` — **FATAL_ERROR** if BGFX enabled without real libs (no stub)
+- [x] A007: Upstream merge on `dev` (SDL3/LLVM/warnings + fork BGFX)
 
 ---
 
-## Track B — Audio engine
+## Track B — Audio
 
-- [x] B001: Null audio — `null/NullAudio.h/cpp`
-- [x] B002: Audio manager abstraction — `WWAudio.h/cpp`
-- [x] B003: OpenAL backend — `openal/OpenALAudio.h/cpp` wired via `W3D_BUILD_OPTION_OPENAL` (ON by default non-Windows). `cmake/openal.cmake` fetches SDK on Windows, uses pkg-config on Linux/macOS.
-- [x] B004: Miles fallback — `miles/MilesAudio.h/cpp`
-- [x] B005: Audio format registration — handled implicitly by Miles/OpenAL backend Init()
-- [x] B006: macOS audio configure path — part of standard CMake, **untested**
+- [x] B001–B006: OpenAL via `find_package` (upstream pattern post-merge)
 
 ---
 
-## Track C — Renderer backend abstraction
+## Track C — Renderer / BGFX
 
-### Phase 1: Core backend infrastructure
+### Infrastructure (source-complete)
 
-- [x] C001: WW3DBackend interface — `ww3dbackend.h`, ~50 pure virtual methods
-- [x] C002: DX8Backend implementation — wraps DX8 behind WW3DBackend
-- [x] C003: NullBackend — no-op renderer (`Null3DObjClass` from `nullrobj.h`)
-- [x] C004: BGFXBackend skeleton — `backends/bgfx/bgfxbackend.h/cpp`
+- [x] C001–C004: WW3DBackend, DX8, Null, BGFX skeleton
+- [x] C005–C010: Shaders, materials, textures, lights (see prior checklist)
+- [x] C011: Texture/VB/IB cache invalidation hooks on `BGFXBackend`
+- [x] C012: Upstream platform layer merged (`dev` @ merge commit)
 
-### Phase 2: Modernization (source-complete)
+### Phase 2 — Windows proof-of-life 🔄
 
-- [x] C005: `ShaderKey` + `ShaderVariantCache::GetOrCreate()` — ⚠️ **runtime needs compiled `.bin` shaders** (see Shader Pipeline below)
-- [x] C006: `BGFXMaterialMapper::Shader_To_BGFX_State()` wired into `Apply_Shader_State()`
-- [x] C007: `Create_FrameBuffer()` + `m_frameBuffer`/`m_activeFrameBuffer`
-- [x] C008: `DXT1/2/3/4/5` → `BC1/2/3` texture format mapping
-- [x] C009: `Make_Layout()` — FVF enum → `bgfx::VertexLayout`
-- [x] C010: `Apply_Light_Environment_State()` — ambient + 4 directional/point lights as uniforms
+Validation ladder (manual; requires retail `.mix` in `Run/`):
 
-### Shader Pipeline ⚠️
+1. `.\scripts\verify-bgfx-build.ps1` — libs + shader `.bin` present
+2. Configure MSVC + `-DENABLE_BGFX_BACKEND=ON`, build `renegade`
+3. Launch — BGFX init logs, no stub link
+4. Main menu or empty level shows 3D
+5. Clean exit
 
-The `.sc` shader source files exist in `Code/ww3d2/backends/bgfx/shaders/source/`
-(vs_uber.sc, fs_uber.sc, vs_mesh.sc, fs_mesh.sc) and the CMake rules in
-`Code/ww3d2/backends/bgfx/CMakeLists.txt` compile them via shaderc.
+- [ ] C020: Interactive Windows session **verified** (document commit + date when done)
+- [ ] C021: Audit #116-class issues (device list, VB/IB upload sizes, program handles)
 
-**Prerequisites for compilation:**
-1. `git submodule update --init --recursive` — fetches bgfx/bx/bimg
-2. `make linux-gcc-release64` in `external/bgfx/` — builds bgfx library + shaderc tool
-3. The compiled `.bin` files land in `build/shaders/` at build time
+### Phase 3 — Render parity ⬜
 
-**Runtime:** `ShaderVariantCache::GetShaderPath()` currently hardcodes `shaders/d3d11/vs_uber.bin`.
-This path must match where CMake copies the compiled binaries — verified automatically
-when the build runs successfully.
+- [ ] C030: Sorting / translucency paths via `dx8wrapper` deferred dispatch
+- [ ] C031: Ubershader variant coverage in gameplay scenes
+- [ ] C032: DXT / managed texture reload
+- [ ] C033: Fog, alpha test, skin/HLOD
+- [ ] C034: Optional #131 staging/null guards (cherry-pick only if gaps found)
 
----
+### Phase 4 — Linux BGFX + headless 🔄
 
-## Track D — Audio/Video decoupling
+- [x] C040: Linux CI BGFX job configured
+- [ ] C041: Manual Linux smoke with Vulkan (if hardware available)
+- [x] C042: FDS / headless via `NullBackend` + `W3D_ALLOW_MISSING_SDL3` (documented in BUILD.md)
 
-- [x] D001: FFmpegFile — `Code/wwlib/FFmpegFile.h`
-- [x] D002: `fix/d002-broken-linkage` branch restores `openw3d.cpp` deleted by PR #103
-- [x] D003: PR #103 FFmpegFile changes (`Set_Frame_Callback`, `Set_User_Data`) verified clean
-- [x] D004: Bink **OFF** by default — `W3D_BUILD_OPTION_BINK=OFF`
-- [x] D005: FFmpeg **ON** by default — `W3D_BUILD_OPTION_FFMPEG=ON`
-- [x] D006: `tests/media/test_pattern.mp4` (5s H.264+AAC FFmpeg lavfi, CC0) + `tests/test_media.cpp` smoke test
+### Phase 4b — SDL runtime window
+
+- [x] C050: `pr/128` delta ported — `SDL_CreateWindow`, HWND from SDL props, `SDL3_Pump_Events`
+- [ ] C051: Verify on **MinGW x64 SDL3** CI row with `-DW3D_BUILD_OPTION_SDL3=ON`
 
 ---
 
-## Track E — Networking (not started)
+## Track D — Media
 
-Research completed. Key findings:
-- Raw `select()`-based I/O — breaks at ~50 connections; needs epoll/IOCP/kqueue
-- Server-authoritative model already in `cnetwork.cpp` — correct for 64+ player scale
-- No NAT traversal — needs coturn/ICE for symmetric NAT
-- No modern lobby — WOL/GameSpy protocols defunct
-- Bandwidth math: 64 players × 20 Hz × ~200 bytes ≈ 1–2 MB/s server uplink
-
-Needed:
-- E001: Replace `select()` I/O with epoll (Linux) / IOCP (Win32) / kqueue (macOS)
-- E002: Integrate ENet or GameNetworkingSockets for UDP transport
-- E003: coturn relay for NAT traversal
-- E004: REST/WebSocket lobby service (even minimal)
+- [x] D001–D006: FFmpeg / Bink options per upstream defaults (FFmpeg OFF on Windows by default)
 
 ---
 
-## Track F — Physics (not started)
+## Upstream engagement
 
-- `Code/wwphys/` is a custom implementation. No known issues but unaudited.
-- Consider migrating to Bullet Physics (LGPL, widely used in open-source games)
-
----
-
-## Track G — AI (not started)
-
-- No behavior tree / GOAP system identified
-- A* pathfinding not confirmed present
-- Needed for single-player depth
+Fork-only until BGFX playable on Windows (C020). Then consider upstream PRs for non-renderer fixes only.
 
 ---
 
-## Track H — Mod/Asset System (not started)
+## What's needed to land (fork)
 
-- No formal mod package format
-- No asset override/precedence system
-- No workshop integration path
+### Must
 
----
+1. Green CI on `dev` (all matrix jobs including BGFX extensions)
+2. C020 Windows interactive proof-of-life
+3. Shader `.bin` artifacts in CI Linux/Windows BGFX jobs
 
-## Track I — Documentation (not started)
+### Should
 
-- README is the original C&C Renegade README
-- No architecture docs, no build guide for Linux, no contributing guide
-
----
-
-## Branches
-
-| Branch | Description |
-|--------|-------------|
-| `upstream/main` | W3DHub main — base reference |
-| `origin/feature/bgfx-backend-v2` | BGFX on backend abstraction — C001–C010 + OpenAL wiring |
-| `origin/fix/d002-broken-linkage` | `upstream/main` + `openw3d.cpp` restored |
-| `origin/feature/d006-media-test` | Media test + `test_pattern.mp4` |
-| `pr-103-openal` | OmniBlade OpenAL PR — D002 broken, D003 verified |
-
----
-
-## What's needed to land
-
-### Must (blocks playability)
-
-1. **Shader compilation** — `shaders/d3d11/vs_uber.bin` / `fs_uber.bin` must be compiled at build time.
-   CI now pre-builds bgfx on the Linux BGFX job, which runs shaderc automatically.
-   **Verify**: run the Linux BGFX CI job and confirm `build/shaders/` contains `.bin` files.
-2. **D002** — Merge `fix/d002-broken-linkage` into the PR or re-add `openw3d.cpp` to PR #103
-3. **Compile test** — No build machine available; CI on `dadud/main` is the proxy for correctness
-
-### Should (blocks multiplayer)
-
-4. **E001 select() → epoll/IOCP** — 64+ players won't work with current I/O model
-5. **Lobby rewrite** — WOL/GameSpy defunct; users cannot connect to servers without a replacement
-
-### Could (quality of life)
-
-6. **macOS testing** — A004/B006 untested
-7. **SDL3 Linux input** — `W3D_BUILD_OPTION_SDL3` is Windows-only; Linux client has no input abstraction
-8. **Physics audit** — verify `wwphys` correctness or migrate to Bullet
-9. **AI** — behavior tree, A* pathfinding
-10. **Mod system** — mod packages, asset override, workshop integration
+4. C030+ render parity for skirmish-quality visuals
+5. Networking (Track E) — separate milestone

@@ -114,16 +114,25 @@ extern "C"
 	bool		WIN_fullscreen = true;
 }
 
+#if defined(OPENW3D_SDL3)
+static SDL_Window* MainSDLWindow = NULL;
+#endif
 
 //----------------------------------------------------------------------------
 //	Local functions
 //----------------------------------------------------------------------------
 static BOOL Create_Main_Window(void);
+#if !defined(OPENW3D_SDL3)
 LRESULT CALLBACK Main_Window_Proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+#endif
 void On_Focus_Loss(void);
 void On_Focus_Restore(void);
+void Prog_End(void);
 int Start_Application( void );
 bool Set_Working_Directory(void);
+#if defined(OPENW3D_SDL3)
+void SDL3_Pump_Events(void);
+#endif
 
 //#include "packet.h"
 
@@ -490,11 +499,14 @@ int Start_Application(void)
 
 	Unregister_Thread_ID(ThreadClass::Get_Current_Thread_ID(), "Main Thread");
 
+	Prog_End();
+
    //Debug_Say(("Finished logging at time %s", cMiscUtil::Get_Text_Time()));
 
 	return exitCode;
 }
 
+#if !defined(OPENW3D_SDL3)
 /***********************************************************************************************
  * Main_Window_Proc -- Windows Proc for the main game window                                   *
  *                                                                                             *
@@ -669,6 +681,7 @@ LRESULT CALLBACK Main_Window_Proc( HWND hwnd, UINT message, WPARAM wParam, LPARA
 
 	return DefWindowProc(hwnd, message, wParam, lParam);
 }
+#endif // !OPENW3D_SDL3
 
 
 /***********************************************************************************************
@@ -688,6 +701,37 @@ LRESULT CALLBACK Main_Window_Proc( HWND hwnd, UINT message, WPARAM wParam, LPARA
  *=============================================================================================*/
 static BOOL Create_Main_Window(void)
 {
+#if defined(OPENW3D_SDL3)
+	if (ConsoleBox.Is_Exclusive()) {
+		return TRUE;
+	}
+
+	if (!SDL_Init(SDL_INIT_VIDEO)) {
+		return FALSE;
+	}
+
+	MainSDLWindow = SDL_CreateWindow(
+		"Renegade",
+		800, 600,
+		SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE);
+
+	if (!MainSDLWindow) {
+		SDL_Quit();
+		return FALSE;
+	}
+
+	MainWindow = (HWND)SDL_GetPointerProperty(SDL_GetWindowProperties(MainSDLWindow), SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+	if (!MainWindow) {
+		SDL_DestroyWindow(MainSDLWindow);
+		MainSDLWindow = NULL;
+		SDL_Quit();
+		return FALSE;
+	}
+
+	ProgramInstance = (HINSTANCE)GetModuleHandleA(NULL);
+	hWndMain = MainWindow;
+	return TRUE;
+#elif defined(OPENW3D_WIN32)
 	WNDCLASSA    wc;
 	BOOL        rc;
 
@@ -708,7 +752,6 @@ static BOOL Create_Main_Window(void)
 		rc = RegisterClassA( &wc);
 		if (!rc ) return FALSE;
 
-		// Assume windowed mode
 		MainWindow = CreateWindowExA(0, SingletonInstanceKeeperClass::Get_GUID(), "Renegade",
 			WS_SYSMENU|WS_CAPTION|WS_MINIMIZEBOX|WS_CLIPCHILDREN,
 				0, 0, 0, 0, NULL, NULL, ProgramInstance, NULL);
@@ -721,7 +764,43 @@ static BOOL Create_Main_Window(void)
 	}
 
 	return TRUE;
+#else
+	return FALSE;
+#endif
 }
+
+#if defined(OPENW3D_SDL3)
+void SDL3_Pump_Events(void)
+{
+	SDL_Event event;
+
+	while (SDL_PollEvent(&event)) {
+		switch (event.type) {
+		case SDL_EVENT_WINDOW_FOCUS_GAINED:
+			if (!GameInFocus) {
+				GameInFocus = true;
+				On_Focus_Restore();
+			}
+			break;
+		case SDL_EVENT_WINDOW_FOCUS_LOST:
+			if (GameInFocus) {
+				GameInFocus = false;
+				On_Focus_Loss();
+			}
+			break;
+		case SDL_EVENT_QUIT:
+			if (GameInFocus) {
+				GameInFocus = false;
+				On_Focus_Loss();
+			}
+			PostQuitMessage(0);
+			return;
+		default:
+			break;
+		}
+	}
+}
+#endif
 
 
 /***********************************************************************************************
@@ -770,6 +849,15 @@ void On_Focus_Restore(void)
 
 void Prog_End(void)
 {
+#if defined(OPENW3D_SDL3)
+	if (MainSDLWindow) {
+		SDL_DestroyWindow(MainSDLWindow);
+		MainSDLWindow = NULL;
+	}
+	MainWindow = NULL;
+	hWndMain = NULL;
+	SDL_Quit();
+#endif
 }
 
 
@@ -789,9 +877,9 @@ void Prog_End(void)
  *=============================================================================================*/
 bool Set_Working_Directory(void)
 {
+	char path_buffer[_MAX_PATH];
 	const char *gamedir = cUserOptions::GameDir.Get();
 #if defined(OPENW3D_WIN32)
-	char path_buffer[_MAX_PATH];
 	if (gamedir == NULL || gamedir[0] == '\0') {
 		char path_to_exe[256];
 		char drive[_MAX_DRIVE];
