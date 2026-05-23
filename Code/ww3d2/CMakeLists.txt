@@ -298,9 +298,6 @@ if(ENABLE_BGFX_BACKEND)
 endif()
 
 # Backend selection defines
-if(ENABLE_BGFX_BACKEND OR (WIN32 AND WANT_DX9))
-    target_compile_definitions(ww3d2 PRIVATE WW3D_DX8=1)
-endif()
 if(ENABLE_BGFX_BACKEND)
     target_compile_definitions(ww3d2 PRIVATE WW3D_BGFX_BACKEND=1)
 elseif(WIN32 AND WANT_DX9)

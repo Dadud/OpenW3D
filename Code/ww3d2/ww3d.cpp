@@ -350,11 +350,11 @@ WW3DErrorType WW3D::Shutdown(void)
 	assert(Lite || IsInitted == true);
 //	WWDEBUG_SAY(("WW3D::Shutdown\n"));
 
-#ifdef WW3D_DX8
+#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
 	if (IsCapturing) {
 		Stop_Movie_Capture();
 	}
-#endif //WW3D_DX8
+#endif
 
 	/*
 	** Free memory in predictive LOD optimizer
@@ -823,9 +823,9 @@ WW3DErrorType WW3D::Begin_Render(bool clear,bool clearz,const Vector3 & color, v
 //	TextureClass::_Reset_Time_Stamp();
 	DynamicVBAccessClass::_Reset(true);
 	DynamicIBAccessClass::_Reset(true);
-#ifdef WW3D_DX8
+#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
 	TextureFileClass::Update_Texture_Flash();
-#endif //WW3D_DX8
+#endif
 	Debug_Statistics::Begin_Statistics();
 
 	if (IsCapturing && (!PauseRecord || RecordNextFrame)) {
@@ -1803,7 +1803,7 @@ void WW3D::Release_Debug_Resources(void)
 
 WW3DErrorType WW3D::On_Deactivate_App(void)
 {
-#ifdef WW3D_DX8
+#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
 	assert(!IsRendering);
 
 	if ( Gerd == NULL )
@@ -1816,14 +1816,14 @@ WW3DErrorType WW3D::On_Deactivate_App(void)
 		return WW3D_ERROR_OK;
 
 	Gerd->closeWindow();
-#endif //WW3D_DX8
+#endif
 	return WW3D_ERROR_OK;
 }
 
 
 WW3DErrorType WW3D::On_Activate_App(void)
 {
-#ifdef WW3D_DX8
+#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
 	if ( Gerd == NULL)
 		return WW3D_ERROR_OK;
 
@@ -1838,7 +1838,7 @@ WW3DErrorType WW3D::On_Activate_App(void)
 		return WW3D_ERROR_WINDOW_NOT_OPEN;
 	}
 
-#endif //WW3D_DX8
+#endif
 	return WW3D_ERROR_OK;
 }
 
@@ -1851,7 +1851,7 @@ void WW3D::Get_Pixel_Center(float &x, float &y)
 
 void WW3D::Update_Pixel_Center(void)
 {
-#ifdef WW3D_DX8
+#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
 	const char *name = _RenderDeviceShortNameTable.getString(CurRenderDevice);
 	if ( strstr(name, "OpenGL") ) {
 		PixelCenterX = 0.0f; PixelCenterY = 0.0f;
@@ -1867,7 +1867,7 @@ void WW3D::Update_Pixel_Center(void)
 		// unknown device
 		PixelCenterX = 0.0f; PixelCenterY = 0.0f;
 	}
-#endif //WW3D_DX8
+#endif
 }
 
 void WW3D::Set_Texture_Bitdepth(int bitdepth)
