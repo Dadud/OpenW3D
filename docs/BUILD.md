@@ -167,6 +167,18 @@ Run/               # Deploy dir for game data + executables
 
 Copy retail Renegade `.mix` files into `Run/`. Without them the client starts but assets are missing.
 
+### Windows: one-command deploy folder
+
+If you already have a v1.037 Renegade install:
+
+```powershell
+.\scripts\make-run-package.ps1 -InstallPath "C:\path\to\Renegade"
+cd Run
+.\Play-Renegade.bat
+```
+
+`-InstallPath` can be omitted when the game is under Steam’s `common\Renegade` (or similar). See [Run/README.md](../Run/README.md).
+
 ---
 
 ## Shader compilation (BGFX)

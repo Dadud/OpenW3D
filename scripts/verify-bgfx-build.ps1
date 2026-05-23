@@ -53,4 +53,11 @@ if ($fail -gt 0) {
     Write-Host "`n$fail check(s) failed."
     exit 1
 }
-Write-Host "`nAll checks passed. Copy retail .mix files to Run/ before interactive testing."
+$strings = Join-Path $root "Run/data/strings.tdb"
+if (Test-Path $strings) {
+    Write-Host "OK:   $strings"
+} else {
+    Write-Host "WARN: no Run/data/strings.tdb — run .\scripts\make-run-package.ps1 -InstallPath <Renegade>"
+}
+
+Write-Host "`nAll build checks passed."

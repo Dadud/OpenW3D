@@ -1,6 +1,14 @@
 
-# Ignore RUNable folder
-[Rr]un
+# Deploy dir: ignore staged binaries and retail data; keep Run/ scaffolding in git
+[Rr]un/**
+![Rr]un/README.md
+![Rr]un/*.bat
+![Rr]un/data/
+[Rr]un/data/**
+![Rr]un/data/.gitkeep
+![Rr]un/shaders/
+[Rr]un/shaders/**
+![Rr]un/shaders/.gitkeep
 
 # Dependencies
 [Ll]ibs/
