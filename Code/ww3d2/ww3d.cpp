@@ -350,7 +350,7 @@ WW3DErrorType WW3D::Shutdown(void)
 	assert(Lite || IsInitted == true);
 //	WWDEBUG_SAY(("WW3D::Shutdown\n"));
 
-#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
+#ifdef WW3D_DX8
 	if (IsCapturing) {
 		Stop_Movie_Capture();
 	}
@@ -823,7 +823,7 @@ WW3DErrorType WW3D::Begin_Render(bool clear,bool clearz,const Vector3 & color, v
 //	TextureClass::_Reset_Time_Stamp();
 	DynamicVBAccessClass::_Reset(true);
 	DynamicIBAccessClass::_Reset(true);
-#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
+#ifdef WW3D_DX8
 	TextureFileClass::Update_Texture_Flash();
 #endif
 	Debug_Statistics::Begin_Statistics();
@@ -1306,8 +1306,10 @@ void WW3D::Make_Screen_Shot( const char * filename_base )
 
 	// Lock front buffer and copy
 
-	IDirect3DSurface9 *fb;
-	fb=Backend->_Get_DX8_Front_Buffer();
+	IDirect3DSurface9 *fb = static_cast<IDirect3DSurface9 *>(Backend->_Get_DX8_Front_Buffer());
+	if (!fb) {
+		return;
+	}
 	D3DSURFACE_DESC desc;
 	fb->GetDesc(&desc);
 
@@ -1588,8 +1590,10 @@ void WW3D::Update_Movie_Capture( void )
 
 		// Lock front buffer and copy
 
-	IDirect3DSurface9 *fb;
-	fb=Backend->_Get_DX8_Front_Buffer();
+	IDirect3DSurface9 *fb = static_cast<IDirect3DSurface9 *>(Backend->_Get_DX8_Front_Buffer());
+	if (!fb) {
+		return;
+	}
 	D3DSURFACE_DESC desc;
 	fb->GetDesc(&desc);
 
@@ -1803,7 +1807,7 @@ void WW3D::Release_Debug_Resources(void)
 
 WW3DErrorType WW3D::On_Deactivate_App(void)
 {
-#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
+#ifdef WW3D_DX8
 	assert(!IsRendering);
 
 	if ( Gerd == NULL )
@@ -1823,7 +1827,7 @@ WW3DErrorType WW3D::On_Deactivate_App(void)
 
 WW3DErrorType WW3D::On_Activate_App(void)
 {
-#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
+#ifdef WW3D_DX8
 	if ( Gerd == NULL)
 		return WW3D_ERROR_OK;
 
@@ -1851,7 +1855,7 @@ void WW3D::Get_Pixel_Center(float &x, float &y)
 
 void WW3D::Update_Pixel_Center(void)
 {
-#if defined(WW3D_DX9_BACKEND) || defined(WW3D_BGFX_BACKEND)
+#ifdef WW3D_DX8
 	const char *name = _RenderDeviceShortNameTable.getString(CurRenderDevice);
 	if ( strstr(name, "OpenGL") ) {
 		PixelCenterX = 0.0f; PixelCenterY = 0.0f;
