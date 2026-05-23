@@ -39,10 +39,10 @@ if(W3D_BUILD_OPTION_OPENAL)
     list(APPEND WWAUDIO_SRC
         openal/OpenALAudio.h
         openal/OpenALAudio.cpp
-        openal/FFMpegBuffer.h
         openal/FFMpegBuffer.cpp
-        openal/OpenALHandle.h
+        openal/FFMpegBuffer.h
         openal/OpenALHandle.cpp
+        openal/OpenALHandle.h
         null/NullUtils.cpp
     )
 elseif(W3D_BUILD_OPTION_MILES)

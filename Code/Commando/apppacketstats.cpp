@@ -76,11 +76,11 @@ cAppPacketStats::Dump_Diagnostics
 	WWDEBUG_SAY(("\n"));
 	WWDEBUG_SAY(("---------------------------------------------------------\n"));
 	WWDEBUG_SAY(("cAppPacketStats::Dump_Diagnostics:\n"));
-	WWDEBUG_SAY(("%s\n", Get_Heading()));
+	WWDEBUG_SAY(("%s\n", Get_Heading().Peek_Buffer()));
 
 	for (BYTE i = 0; i < APPPACKETTYPE_COUNT; i++)
 	{
-		WWDEBUG_SAY(("%s\n", Get_Description(i)));
+		WWDEBUG_SAY(("%s\n", Get_Description(i).Peek_Buffer()));
 	}
 
 	WWDEBUG_SAY(("\n"));
@@ -255,11 +255,11 @@ cAppPacketStats::Interpret_Type
 		ADD_CASE(APPPACKETTYPE_ALL);
 
 		default:
-         break;
-   }
+    	break;
+  }
 
-	return "ERROR";
 	DIE;
+	return "ERROR";
 }
 
 //-----------------------------------------------------------------------------

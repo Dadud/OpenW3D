@@ -639,7 +639,7 @@ bool cGameData::Is_Map_Valid(char **out_filename)
 }
 
 
-#define PRINT_CONFIG_ERROR	ConsoleBox.Print("File %s - Error:\r\n\t ", Get_Ini_Filename());
+#define PRINT_CONFIG_ERROR	ConsoleBox.Print("File %s - Error:\r\n\t ", Get_Ini_Filename().Peek_Buffer());
 
 //-----------------------------------------------------------------------------
 bool cGameData::Is_Valid_Settings(WideStringClass& outMsg, bool check_as_server)
@@ -853,6 +853,7 @@ void cGameData::Import_Tier_1_Data(cPacket & packet)
    Set_Game_Title(title);
 
 	int	i_placeholder;
+	uint32_t	u32_placeholder;
 	bool	b_placeholder;
 
    Set_Port(						packet.Get(i_placeholder));
@@ -863,8 +864,8 @@ void cGameData::Import_Tier_1_Data(cPacket & packet)
 	//
 	//	Compare the individual CRC's against our own
 	//
-	DoExeVersionsMatch		= (packet.Get(i_placeholder) == cNetwork::Get_Exe_CRC ());
-	DoStringVersionsMatch	= (packet.Get(i_placeholder) == cNetwork::Get_Strings_CRC ());
+	DoExeVersionsMatch		= (packet.Get(u32_placeholder) == cNetwork::Get_Exe_CRC ());
+	DoStringVersionsMatch	= (packet.Get(u32_placeholder) == cNetwork::Get_Strings_CRC ());
 
 	IsDedicated.Set(				packet.Get(b_placeholder));
 	IsTeamChangingAllowed.Set(	packet.Get(b_placeholder));
@@ -1366,9 +1367,6 @@ int cGameData::Choose_Player_Type(cPlayer* player, int team_choice, bool is_grun
 
 			return team;
 		}
-
-		WWDEBUG_SAY(("CLANS: ERROR - Player not assigned to team\n"));
-		WWASSERT("ERROR: Player not assigned to team");
 	} else {
 		if (PLAYERTYPE_RENEGADE == team_choice || IsTeamChangingAllowed.Is_False()) {
 			return Choose_Smallest_Team();
@@ -1533,7 +1531,7 @@ unsigned int cGameData::Get_Config_File_Mod_Time(void)
 	RawFileClass file(full_filename);
 
 	if (!file.Is_Available()) {
-      full_filename.Format("data/%s", IniFilename);
+      full_filename.Format("data/%s", IniFilename.Peek_Buffer());
 		file.Set_Name(full_filename);
    }
 
@@ -1961,7 +1959,7 @@ void cGameData::Get_Time_Limit_Text(WideStringClass& text)
       WideStringClass time_string(0, true);
       time_string.Format(U_CHAR("%02d:%02d:%02d"), hours, mins, seconds);
 
-		text.Format(U_CHAR("%s: %s"), TRANSLATION(IDS_MP_TIME_REMAINING), time_string);
+		text.Format(U_CHAR("%s: %s"), TRANSLATION(IDS_MP_TIME_REMAINING), time_string.Peek_Buffer());
    }
 
 }

@@ -314,7 +314,7 @@ if (W3D_TOOLS)
     # Targets to build.
     add_library(ww3d2e STATIC)
 
-    set(EDITOR_LINK_LIBS wwcommon)
+    set(EDITOR_LINK_LIBS wwcommon wwlib)
     if(WIN32)
         list(APPEND EDITOR_LINK_LIBS vfw32 winmm)
     endif()

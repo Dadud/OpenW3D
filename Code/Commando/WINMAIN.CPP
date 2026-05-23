@@ -258,7 +258,7 @@ static bool Graphics_Settings_Trouble_Shooting()
 			return 1;
 		}
 		process->Wait();
-		bool success = *process->Return_Code() != 0;
+		bool success = *process->Return_Code() == 0;
 		delete process;
 		return success;
 	}
@@ -789,9 +789,9 @@ void Prog_End(void)
  *=============================================================================================*/
 bool Set_Working_Directory(void)
 {
-	char path_buffer[_MAX_PATH];
 	const char *gamedir = cUserOptions::GameDir.Get();
 #if defined(OPENW3D_WIN32)
+	char path_buffer[_MAX_PATH];
 	if (gamedir == NULL || gamedir[0] == '\0') {
 		char path_to_exe[256];
 		char drive[_MAX_DRIVE];

@@ -17,6 +17,9 @@ list(APPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
 # This file handles extra settings wanted/needed for different compilers.
 include(compilers)
 
+# This file allows embedding resources
+include(embed)
+
 # Set where the build results will end up
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" CACHE PATH "Where to output archives")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}" CACHE PATH "Where to output libraries")
@@ -39,16 +42,7 @@ if(SYNTAX_CHECK_ONLY)
 endif(SYNTAX_CHECK_ONLY)
 
 # Do we want to build with SDL3 for windows and inputs?
-# SDL3: optional everywhere. Default ON for Linux/macOS, OFF for Windows.
-# User can override with -DW3D_BUILD_OPTION_SDL3=ON/OFF
-if(NOT DEFINED W3D_BUILD_OPTION_SDL3)
-    if(WIN32)
-        set(W3D_BUILD_OPTION_SDL3 OFF)
-    else()
-        set(W3D_BUILD_OPTION_SDL3 ON)
-    endif()
-endif()
-set(W3D_BUILD_OPTION_SDL3 ${W3D_BUILD_OPTION_SDL3} CACHE BOOL "Build OpenW3D with SDL3.")
+cmake_dependent_option(W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3." OFF WIN32 ON)
 add_feature_info(SDL3Build W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3")
 
 # Do we want to build with webbrowser?
@@ -56,13 +50,12 @@ cmake_dependent_option(W3D_BUILD_OPTION_WEBBROWSER "Build OpenW3D with webbrowse
 add_feature_info(BrowserBuild W3D_BUILD_OPTION_WEBBROWSER "Build OpenW3D with webbrowser")
 
 # Do we want to build with ffmpeg for audio/video decoding?
-option(W3D_BUILD_OPTION_FFMPEG "Build with ffmpeg." ON)
+cmake_dependent_option(W3D_BUILD_OPTION_FFMPEG "Build with ffmpeg." OFF WIN32 ON)
 add_feature_info(FFMpegBuild W3D_BUILD_OPTION_FFMPEG "Build OpenW3D with FFMpeg")
 
-# Do we want to build with OpenAL for 3D spatial audio?
-# OpenAL provides HRTF and EFX reverb on all platforms; Windows has native DSound fallback
-cmake_dependent_option(W3D_BUILD_OPTION_OPENAL "Build with OpenAL 3D spatial audio." ON "NOT WIN32" OFF)
-add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build with OpenAL")
+# Do we want to build with OpenAL for audio playback?
+cmake_dependent_option(W3D_BUILD_OPTION_OPENAL "Build with openal." ON W3D_BUILD_OPTION_FFMPEG OFF)
+add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build OpenW3D with OpenAL")
 
 # Do we want to build with the BGFX graphics backend?
 # Requires: git submodule update --init --recursive (bgfx, bx, bimg)
@@ -73,7 +66,6 @@ add_feature_info(BGFXBackend ENABLE_BGFX_BACKEND "Build with BGFX backend")
 cmake_dependent_option(WANT_DX9 "Build with native DirectX 9 backend on Windows." ON "WIN32 AND NOT ENABLE_BGFX_BACKEND" OFF)
 add_feature_info(DX9Backend WANT_DX9 "Build with DX9 backend")
 
-# Optional Qt tooling (WWConfigQt)
 option(W3D_BUILD_QT_TOOLS "Build Qt-based GUI tools." OFF)
 add_feature_info(QtTools W3D_BUILD_QT_TOOLS "Build Qt front-end tools")
 
@@ -93,29 +85,24 @@ if(W3D_BUILD_OPTION_FFMPEG)
     include(ffmpeg)
 endif()
 
-if(W3D_BUILD_OPTION_OPENAL)
-    include(openal)
-endif()
-
 if(ENABLE_BGFX_BACKEND)
     include(bgfx)
 endif()
 
-message(STATUS "W3D_BUILD_OPTION_SDL3 = ${W3D_BUILD_OPTION_SDL3}")
 if(W3D_BUILD_OPTION_SDL3)
     include(sdl3)
-endif()
-
-if(W3D_BUILD_OPTION_SDL3)
     add_compile_definitions(-DOPENW3D_SDL3=1)
 elseif(WIN32)
     add_compile_definitions(-DOPENW3D_WIN32=1)
 else()
-    message(WARNING "No SDL3 found — building headless/null backend only. Install libsdl3-dev for full client.")
-    add_compile_definitions(-DOPENW3D_NULL=1)
+    message(FATAL_ERROR "Invalid backend")
 endif()
 
 add_compile_definitions(-DWEBBROWSER_ENABLED=$<BOOL:${W3D_BUILD_OPTION_WEBBROWSER}>)
+
+if(W3D_BUILD_OPTION_OPENAL)
+    include(openal)
+endif()
 
 if(W3D_BUILD_QT_TOOLS)
     if(NOT CMAKE_SIZEOF_VOID_P EQUAL 8)
@@ -129,7 +116,7 @@ endif()
 
 if(WIN32)
     # Do we want to build with bink for video decoding?
-    option(W3D_BUILD_OPTION_BINK "Build with bink." OFF)
+    cmake_dependent_option(W3D_BUILD_OPTION_BINK "Build with bink." ON NOT W3D_BUILD_OPTION_FFMPEG OFF)
     add_feature_info(BinkBuild W3D_BUILD_OPTION_BINK "Build OpenW3D with Bink")
 
     if(W3D_BUILD_OPTION_BINK)
@@ -138,7 +125,7 @@ if(WIN32)
     endif()
 
     # Do we want to build with miles for audio playback?
-    option(W3D_BUILD_OPTION_MILES "Build with miles." ON)
+    cmake_dependent_option(W3D_BUILD_OPTION_MILES "Build with miles." ON NOT W3D_BUILD_OPTION_OPENAL OFF)
     add_feature_info(MilesBuild W3D_BUILD_OPTION_MILES "Build OpenW3D with Miles Audio")
 
     if(W3D_BUILD_OPTION_MILES)
@@ -152,11 +139,8 @@ if(WIN32)
         include(icu)
     endif()
 else()
-    option(W3D_BUILD_OPTION_ICU "Build with ICU." ON)
-    add_feature_info(ICUBuild W3D_BUILD_OPTION_ICU "Build OpenW3D with ICU")
-    if(W3D_BUILD_OPTION_ICU)
-        include(icu)
-    endif()
+    set(W3D_BUILD_OPTION_ICU ON)
+    include(icu)
 endif()
 
 include(dx9)

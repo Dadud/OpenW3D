@@ -27,9 +27,15 @@
 #include <AL/al.h>
 #include <AL/alc.h>
 #include <AL/alext.h>
-#include <unordered_map>
+#include <string.h>
 
 class FFMpegBufferClass;
+
+enum
+{
+	MAX_CACHE_HASH = 256,
+	CACHE_HASH_MASK = 0x000000FF
+};
 
 class OpenALAudioClass final : public WWAudioClass
 {
@@ -44,7 +50,7 @@ public:
 	int Get_3D_Device_Count() const override { return 1; }
 	bool Get_3D_Device (int /* index */, const char **info) override   { (*info) = m_DriverName; return true; }
 	bool Select_3D_Device (const char * /* device_name */) override { return true; }
-	void Set_Speaker_Type (int speaker_type) override { m_SpeakerType = speaker_type; }
+	void Set_Speaker_Type (int speaker_type) override;
 	int Get_Speaker_Type() const override { return m_SpeakerType; }
 	float Get_Effects_Level() override { return 0.0F; }
 	void Flush_Cache() override;
@@ -52,7 +58,7 @@ public:
 	int Get_3D_Sample_Count() const override { return m_3DSampleHandles.Count();}
 	AudibleSoundClass *Peek_2D_Sample (int index) override;
 	AudibleSoundClass *Peek_3D_Sample (int index) override;
-	bool Validate_3D_Sound_Buffer (SoundBufferClass *buffer) override { return buffer->Get_Channels () == 1; }
+	bool Validate_3D_Sound_Buffer (SoundBufferClass *buffer) override { return buffer != nullptr && buffer->Get_Channels () == 1; }
 	SoundHandleClass *Get_2D_Handle (const AudibleSoundClass &sound_obj, bool streaming) override;
 	SoundHandleClass *Get_3D_Handle (const Sound3DClass &sound_obj) override;
 	SoundBufferClass *Get_Sound_Buffer (const char *filename, bool is_3d) override;
@@ -94,14 +100,36 @@ private:
 	void Release_Handles();
 	void ReAssign_Handles();
 	void Remove_Handles();
+	SoundBufferClass *Find_Cached_Buffer(const char *string_id);
+	bool Cache_Buffer(SoundBufferClass *buffer, const char *string_id);
 
 private:
+	typedef struct _CACHE_ENTRY_STRUCT
+	{
+		char *string_id;
+		SoundBufferClass *buffer;
+
+		_CACHE_ENTRY_STRUCT(void)
+			: string_id(nullptr), buffer(nullptr) {}
+
+		_CACHE_ENTRY_STRUCT &operator=(const _CACHE_ENTRY_STRUCT &src)
+		{
+			string_id = ::strdup(src.string_id);
+			REF_PTR_SET(buffer, src.buffer);
+			return *this;
+		}
+		bool operator==(const _CACHE_ENTRY_STRUCT &/* src */) { return false; }
+		bool operator!=(const _CACHE_ENTRY_STRUCT &/* src */) { return true; }
+	} CACHE_ENTRY_STRUCT;
+
 	DynamicVectorClass<ALuint> m_2DSampleHandles;
 	DynamicVectorClass<ALuint> m_3DSampleHandles;
+	DynamicVectorClass<CACHE_ENTRY_STRUCT> m_CachedBuffers[MAX_CACHE_HASH];
 	StringClass m_DriverName;
 	ALCdevice *m_alcDevice;
 	ALCcontext *m_alcContext;
 	int m_SpeakerType;
+	int m_CurrentCacheSize;
 };
 
 #endif /* __OPENALAUDIO_H */

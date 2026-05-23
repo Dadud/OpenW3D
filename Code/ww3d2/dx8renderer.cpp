@@ -1372,7 +1372,7 @@ void DX8SkinFVFCategoryContainer::Render(void)
 	}
 	WWASSERT(vertex_offset==VisibleVertexCount);
 
-	SNAPSHOT_SAY(("Set vb: %x ib: %x\n",vb,index_buffer));
+	SNAPSHOT_SAY(("Set vb: %x ib: %p\n",vb.Get_Type(),index_buffer));
 
 	DX8Wrapper::Set_Vertex_Buffer(vb);
 	DX8Wrapper::Set_Index_Buffer(index_buffer,0);
@@ -1635,7 +1635,7 @@ void DX8TextureCategoryClass::Render(void)
 	SNAPSHOT_SAY(("Set_Material(%s)\n",Peek_Material() ? static_cast<const char *>(Peek_Material()->Get_Name()) : "NULL"));
 	DX8Wrapper::Set_Material(Peek_Material());
 
-	SNAPSHOT_SAY(("Set_Shader(0x%x)\n",Get_Shader()));
+	SNAPSHOT_SAY(("Set_Shader(0x%x)\n",Get_Shader().Get_Bits()));
 	DX8Wrapper::Set_Shader(Get_Shader());
 
 	PolyRenderTaskClass * prt = render_task_head;
@@ -2041,8 +2041,9 @@ static inline DWORD Float2Unsigned(float f) {
 }
 void DX8MeshRendererClass::Render_Decal_Meshes()
 {
+	static constexpr float DEPTH_BIAS_UNIT = 1.0f / 16777216.0f;
 	const float slope_scale = 0.0f;
-	const float const_bias = -0.001f;
+	const float const_bias = -DEPTH_BIAS_UNIT;
 
 	DX8Wrapper::Set_DX8_Render_State(D3DRS_SLOPESCALEDEPTHBIAS, Float2Unsigned(slope_scale));
 	DX8Wrapper::Set_DX8_Render_State(D3DRS_DEPTHBIAS, Float2Unsigned(const_bias));
@@ -2103,7 +2104,6 @@ void DX8MeshRendererClass::Invalidate()
 
 	texture_category_container_lists_rigid.Delete_All();
 }
-
 
 
 
