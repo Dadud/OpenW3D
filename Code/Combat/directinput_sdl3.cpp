@@ -17,10 +17,20 @@
 //    tracked per button per frame, just like DirectInput's buffered events.
 
 #include "directinput.h"
+#include "sdl3_window.h"
 #include <SDL3/SDL.h>
 #include <cstring>
 #include <cstdio>
 #include <cmath>
+
+// SDL3 window reference. Set by WINMAIN.CPP after SDL_CreateWindow
+// succeeds; read by DirectInput::Acquire/Unacquire for mouse grab, and
+// could be used by other systems (cursor management, dialog parenting).
+// On Windows this stays null and the Win32 path is unaffected.
+SDL_Window* g_sdl3_main_window = nullptr;
+
+extern "C" SDL_Window* Get_SDL3_Main_Window(void) { return g_sdl3_main_window; }
+extern "C" void Set_SDL3_Main_Window(SDL_Window* win) { g_sdl3_main_window = win; }
 
 // ============================================================================
 // Static state (matches the private members of the original DirectInput class)
@@ -39,8 +49,6 @@ void*   DirectInput::DirectInputLibrary = nullptr;
 int     DirectInput::LastKeyPressed = 0;
 bool    DirectInput::Captured = false;
 
-// SDL3 handles (lazy-initialized in Init)
-static SDL_Window*   s_sdl_window = nullptr;
 static SDL_Gamepad*  s_sdl_gamepad = nullptr;
 static bool          s_has_focus = true;
 static bool          s_mouse_grabbed = false;
@@ -201,8 +209,8 @@ void DirectInput::Shutdown(void)
 void DirectInput::Acquire(void)
 {
 	Captured = true;
-	if (s_sdl_window && !s_mouse_grabbed) {
-		SDL_SetWindowMouseGrab(s_sdl_window, true);
+	if (g_sdl3_main_window && !s_mouse_grabbed) {
+		SDL_SetWindowMouseGrab(g_sdl3_main_window, true);
 		SDL_HideCursor();
 		s_mouse_grabbed = true;
 	}
@@ -211,8 +219,8 @@ void DirectInput::Acquire(void)
 void DirectInput::Unacquire(void)
 {
 	Captured = false;
-	if (s_sdl_window && s_mouse_grabbed) {
-		SDL_SetWindowMouseGrab(s_sdl_window, false);
+	if (g_sdl3_main_window && s_mouse_grabbed) {
+		SDL_SetWindowMouseGrab(g_sdl3_main_window, false);
 		SDL_ShowCursor();
 		s_mouse_grabbed = false;
 	}
@@ -255,6 +263,13 @@ void DirectInput::Read(void)
 	DIMouseAxis[MOUSE_Y_AXIS] = static_cast<int>(my);
 	// Mouse wheel is delivered as an event; we accumulate and drain in the
 	// event loop below.
+
+	// If we never got a window from WINMAIN.CPP (e.g. building against
+	// an older SDK or running headless), bail. The Win32 path will be
+	// used instead.
+	if (!g_sdl3_main_window) {
+		return;
+	}
 
 	// 2) Snapshot the current HELD bits before processing events. The event
 	//    loop will set HIT/RELEASED by comparing to this snapshot.

@@ -263,6 +263,7 @@ set(COMBAT_SRC
     debug.h
     directinput.h
     DIK_keycodes.h
+    sdl3_window.h
     reflist.h
     string_ids.h
     timemgr.h

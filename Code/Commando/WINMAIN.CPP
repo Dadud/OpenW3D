@@ -75,6 +75,7 @@
 #include "Except.h"
 
 #include "directinput.h"
+#include "sdl3_window.h"
 #include "WebBrowser.h"
 #include "wwmemlog.h"
 
@@ -724,8 +725,13 @@ static BOOL Create_Main_Window(void)
 	return TRUE;
 #elif defined(OPENW3D_SDL3)
 	// OpenW3D @feature SDL3 window creation replaces the Win32 CreateWindow.
-	// WW3D::Init is given the SDL3 window handle, and DirectInput (now SDL3
-	// backed) attaches to the same window for event delivery.
+	// On Linux/macOS, the rendering pipeline (DXVK native) needs the platform-
+	// specific native window handle (X11 Window, Wayland wl_surface, Cocoa
+	// NSWindow) so the D3D9-to-Vulkan shim can present into the right surface.
+	// DXVK's d3d9.h defines HWND on Linux as a uint32_t holding the X11 Window
+	// id (or 0 for headless). We extract it via SDL_GetWindowWMInfo() and
+	// stash it in the global MainWindow that the rest of the engine casts
+	// opaquely through.
 	if (ConsoleBox.Is_Exclusive()) {
 		// Headless server: no window needed
 		MainWindow = (HWND)0;
@@ -745,11 +751,34 @@ static BOOL Create_Main_Window(void)
 		return FALSE;
 	}
 
-	// Store the SDL3 window handle in the global MainWindow (opaque void*
-	// as expected by the rest of the engine). The DirectInput SDL3 backend
-	// already calls SDL functions on it through its own state.
-	MainWindow = reinterpret_cast<HWND>(win);
+	// Pull the native window handle for DXVK. On X11 this is the Window
+	// (an XID, fitting in uint32_t == HWND). On Wayland we still get an
+	// X11 handle via SDL3's x11-on-wayland mode. On macOS we'd need a
+	// separate path (CALayer for Metal/DXVK) but Renegade's macOS port
+	// isn't a target right now.
+	SDL_PropertiesID props = SDL_GetWindowProperties(win);
+	HWND native_handle = (HWND)SDL_GetPointerProperty(props,
+		SDL_PROP_WINDOW_X11_WINDOW_POINTER, NULL);
+	if (native_handle == 0) {
+		// Try the older API for SDL3 versions that lack PROP lookups
+		SDL_SysWMinfo wminfo;
+		SDL_memset(&wminfo, 0, sizeof(wminfo));
+		SDL_VERSION(&wminfo.version);
+		if (SDL_GetWindowWMInfo(win, &wminfo, SDL_SYSWM_CURRENT_VERSION)) {
+#if defined(SDL_VIDEO_DRIVER_X11)
+			native_handle = (HWND)wminfo.info.x11.window;
+#endif
+		}
+	}
+
+	MainWindow = native_handle;
 	SDL_ShowWindow(win);
+
+	// Stash the SDL_Window* for the DirectInput SDL3 backend (event pump,
+	// mouse grab, cursor hide) and any other subsystem that needs the
+	// SDL3 window. The two pointer types (native handle vs SDL_Window*)
+	// live in different globals so they never get confused.
+	Set_SDL3_Main_Window(win);
 	return TRUE;
 #else
 	assert(0);
