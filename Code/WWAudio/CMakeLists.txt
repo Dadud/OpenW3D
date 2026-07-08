@@ -80,8 +80,8 @@ if(TARGET milesstub)
     target_link_libraries(wwaudio PRIVATE milesstub)
 endif()
 
-if(TARGET OpenAL::OpenAL)
-    target_link_libraries(wwaudio PRIVATE OpenAL::OpenAL)
+if(TARGET OpenAL_Lib)
+    target_link_libraries(wwaudio PRIVATE OpenAL_Lib)
 endif()
 
 # This module needs building differently for the level editor
@@ -101,8 +101,8 @@ if (W3D_TOOLS)
         target_compile_definitions(wwaudioe PRIVATE W3D_HAS_MILES)
     endif()
 
-    if(TARGET OpenAL::OpenAL)
-        target_link_libraries(wwaudioe PRIVATE OpenAL::OpenAL)
+    if(TARGET OpenAL_Lib)
+        target_link_libraries(wwaudioe PRIVATE OpenAL_Lib)
     endif()
 
     if(TARGET milesstub)

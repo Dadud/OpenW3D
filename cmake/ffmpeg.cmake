@@ -1,4 +1,4 @@
 find_package(FFmpeg REQUIRED COMPONENTS AVCODEC AVFORMAT AVUTIL SWSCALE SWRESAMPLE)
 
 add_library(ffmpeg INTERFACE)
-target_link_libraries(ffmpeg INTERFACE FFmpeg::AVCODEC FFmpeg::AVFORMAT FFmpeg::AVUTIL FFmpeg::SWSCALE FFmpeg::SWRESAMPLE)
+target_link_libraries(ffmpeg INTERFACE FFmpeg_AVCODEC FFmpeg_AVFORMAT FFmpeg_AVUTIL FFmpeg_SWSCALE FFmpeg_SWRESAMPLE)
