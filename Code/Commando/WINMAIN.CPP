@@ -688,6 +688,7 @@ LRESULT CALLBACK Main_Window_Proc( HWND hwnd, UINT message, WPARAM wParam, LPARA
  *=============================================================================================*/
 static BOOL Create_Main_Window(void)
 {
+#if defined(OPENW3D_WIN32)
 	WNDCLASSA    wc;
 	BOOL        rc;
 
@@ -699,7 +700,7 @@ static BOOL Create_Main_Window(void)
 		wc.cbClsExtra		= 0;
 		wc.cbWndExtra		= 0;
 		wc.hInstance		= ProgramInstance;
-		wc.hIcon				= LoadIcon( NULL, IDI_APPLICATION);
+		wc.hIcon			= LoadIcon( NULL, IDI_APPLICATION);
 		wc.hCursor			= LoadCursor( NULL, IDC_ARROW);
 		wc.hbrBackground	= (HBRUSH)GetStockObject( BLACK_BRUSH);
 		wc.lpszMenuName	= NULL;
@@ -721,6 +722,39 @@ static BOOL Create_Main_Window(void)
 	}
 
 	return TRUE;
+#elif defined(OPENW3D_SDL3)
+	// OpenW3D @feature SDL3 window creation replaces the Win32 CreateWindow.
+	// WW3D::Init is given the SDL3 window handle, and DirectInput (now SDL3
+	// backed) attaches to the same window for event delivery.
+	if (ConsoleBox.Is_Exclusive()) {
+		// Headless server: no window needed
+		MainWindow = (HWND)0;
+		return TRUE;
+	}
+
+	if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_GAMEPAD)) {
+		return FALSE;
+	}
+
+	const int initial_w = 1024;
+	const int initial_h = 768;
+	SDL_Window* win = SDL_CreateWindow("Renegade",
+		initial_w, initial_h,
+		SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
+	if (!win) {
+		return FALSE;
+	}
+
+	// Store the SDL3 window handle in the global MainWindow (opaque void*
+	// as expected by the rest of the engine). The DirectInput SDL3 backend
+	// already calls SDL functions on it through its own state.
+	MainWindow = reinterpret_cast<HWND>(win);
+	SDL_ShowWindow(win);
+	return TRUE;
+#else
+	assert(0);
+	return FALSE;
+#endif
 }
 
 

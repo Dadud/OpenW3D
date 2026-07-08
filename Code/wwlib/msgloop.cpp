@@ -96,6 +96,7 @@ bool (*Message_Intercept_Handler)(MSG &msg) = NULL;
  *=============================================================================================*/
 void Windows_Message_Handler(void)
 {
+#if defined(OPENW3D_WIN32)
 	MSG msg;
 
 	/*
@@ -152,6 +153,14 @@ void Windows_Message_Handler(void)
 		TranslateMessage(&msg);
 		DispatchMessage(&msg);
 	}
+#else
+	// OpenW3D @feature On non-Windows builds, the DirectInput SDL3 backend
+	// (directinput_sdl3.cpp) pumps SDL events from DirectInput::Read() which
+	// is called once per frame from Input::Update(). The Win32-specific
+	// PeekMessage/TranslateMessage/DispatchMessage loop is unnecessary here
+	// because SDL3 handles its own event delivery.
+	(void)0;
+#endif
 }
 
 
