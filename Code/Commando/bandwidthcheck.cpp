@@ -40,7 +40,10 @@
  * - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - */
 
 #include	"always.h"
+#if defined(_WIN32)
 #include	<windows.h>
+#endif
+#include "win32_compat.h"
 #include "systimer.h"
 #include	<stddef.h>
 
