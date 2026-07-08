@@ -40,6 +40,12 @@
 #ifndef ALWAYS_H
 #define ALWAYS_H
 
+#include "../platform/platform.h"
+
+#if defined(OPENW3D_PLATFORM_POSIX)
+#include "win32_compat.h"
+#endif
+
 /*
 ** Define for debug memory allocation to include __FILE__ and __LINE__ for every memory allocation.
 ** This helps find leaks.

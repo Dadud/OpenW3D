@@ -64,6 +64,9 @@
 #elif defined(OPENW3D_SDL3)
 #define	NULL_HANDLE	 	NULL
 #define	HANDLE_TYPE		struct SDL_IOStream*
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+#define	NULL_HANDLE		NULL
+#define	HANDLE_TYPE		void*
 #else
 #error "Not implemented"
 #endif

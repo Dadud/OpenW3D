@@ -21,17 +21,26 @@
 #include "wwdebug.h"
 #include "thread.h"
 #include "mpu.h"
+#include <cstdio>
+#include <cstring>
+#if defined(OPENW3D_WIN32) || defined(_WIN32)
 #include <windows.h>
+#endif
 #include "systimer.h"
 
-#if CPU_X86 || CPU_X86_64
-#include <intrin.h>
+#if defined(OPENW3D_PLATFORM_LINUX)
+#include <sys/sysinfo.h>
+#include <sys/utsname.h>
+#endif
+#if defined(OPENW3D_PLATFORM_MACOS) || defined(OPENW3D_PLATFORM_IOS)
+#include <sys/sysctl.h>
 #endif
 
 #if CPU_X86 || CPU_X86_64
+#include <intrin.h>
 #define READ_TSC() __rdtsc()
 #else
-#error "READ_TSC() unimplemented for current cpu"
+#define READ_TSC() 0
 #endif
 
 struct OSInfoStruct {
@@ -68,17 +77,6 @@ struct OSInfoStruct {
 	}
 */
 };
-
-static void Get_OS_Info(
-	OSInfoStruct& os_info,
-	unsigned OSVersionPlatformId,
-	unsigned OSVersionNumberMajor,
-	unsigned OSVersionNumberMinor,
-	unsigned OSVersionBuildNumber);
-
-
-StringClass CPUDetectClass::ProcessorLog;
-StringClass CPUDetectClass::CompactLog;
 
 int CPUDetectClass::ProcessorType;
 int CPUDetectClass::ProcessorFamily;
@@ -890,6 +888,7 @@ void CPUDetectClass::Init_Processor_Features()
 
 void CPUDetectClass::Init_Memory()
 {
+#if defined(OPENW3D_PLATFORM_WINDOWS)
 	MEMORYSTATUS mem;
 	GlobalMemoryStatus(&mem);
 	TotalPhysicalMemory=mem.dwTotalPhys;
@@ -898,10 +897,47 @@ void CPUDetectClass::Init_Memory()
 	AvailablePageMemory=mem.dwAvailPageFile;
 	TotalVirtualMemory=mem.dwTotalVirtual;
 	AvailableVirtualMemory=mem.dwAvailVirtual;
+#elif defined(OPENW3D_PLATFORM_LINUX)
+	struct sysinfo mem;
+	sysinfo(&mem);
+	TotalPhysicalMemory = mem.totalram * mem.mem_unit;
+	AvailablePhysicalMemory = mem.freeram * mem.mem_unit;
+	TotalPageMemory = mem.totalswap * mem.mem_unit;
+	AvailablePageMemory = mem.freeswap * mem.mem_unit;
+	TotalVirtualMemory = TotalPhysicalMemory + TotalPageMemory;
+	AvailableVirtualMemory = AvailablePhysicalMemory + AvailablePageMemory;
+#elif defined(OPENW3D_PLATFORM_MACOS) || defined(OPENW3D_PLATFORM_IOS)
+	uint64_t phys = 0;
+	size_t phys_len = sizeof(phys);
+	int mib[2] = { CTL_HW, HW_MEMSIZE };
+	if (sysctl(mib, 2, &phys, &phys_len, nullptr, 0) == 0) {
+		TotalPhysicalMemory = phys;
+		AvailablePhysicalMemory = phys;
+	}
+	TotalPageMemory = 0;
+	AvailablePageMemory = 0;
+	TotalVirtualMemory = phys;
+	AvailableVirtualMemory = phys;
+#elif defined(OPENW3D_PLATFORM_ANDROID)
+	TotalPhysicalMemory = 0;
+	AvailablePhysicalMemory = 0;
+	TotalPageMemory = 0;
+	AvailablePageMemory = 0;
+	TotalVirtualMemory = 0;
+	AvailableVirtualMemory = 0;
+#else
+	TotalPhysicalMemory = 0;
+	AvailablePhysicalMemory = 0;
+	TotalPageMemory = 0;
+	AvailablePageMemory = 0;
+	TotalVirtualMemory = 0;
+	AvailableVirtualMemory = 0;
+#endif
 }
 
 void CPUDetectClass::Init_OS()
 {
+#if defined(OPENW3D_PLATFORM_WINDOWS)
 	// GetVersionEx only returns the version of Windows it was manifested for since Windows 8.
 	// RtlGetVersion returns the correct information at least at the time of writing.
 	typedef LONG(WINAPI * RtlGetVersionFuncPtr)(PRTL_OSVERSIONINFOW);
@@ -927,6 +963,47 @@ void CPUDetectClass::Init_OS()
 	OSVersionBuildNumber = 0;
 	OSVersionPlatformId = 2;
     OSVersionExtraInfo = "";
+#elif defined(OPENW3D_PLATFORM_LINUX)
+	struct utsname uts;
+	if (uname(&uts) == 0) {
+		int major = 0, minor = 0, build = 0;
+		std::sscanf(uts.release, "%d.%d.%d", &major, &minor, &build);
+		OSVersionNumberMajor = static_cast<unsigned>(major);
+		OSVersionNumberMinor = static_cast<unsigned>(minor);
+		OSVersionBuildNumber = static_cast<unsigned>(build);
+		OSVersionPlatformId = static_cast<unsigned>(-1);
+		OSVersionExtraInfo = uts.version;
+	} else {
+		OSVersionNumberMajor = 0;
+		OSVersionNumberMinor = 0;
+		OSVersionBuildNumber = 0;
+		OSVersionPlatformId = static_cast<unsigned>(-1);
+		OSVersionExtraInfo = "";
+	}
+#elif defined(OPENW3D_PLATFORM_MACOS) || defined(OPENW3D_PLATFORM_IOS)
+	char str[256] = {0};
+	size_t size = sizeof(str);
+	int ret = sysctlbyname("kern.osrelease", str, &size, nullptr, 0);
+	if (ret == 0) {
+		int major = 0, minor = 0, build = 0;
+		std::sscanf(str, "%d.%d.%d", &major, &minor, &build);
+		OSVersionNumberMajor = 10;
+		OSVersionNumberMinor = static_cast<unsigned>(major - 4);
+		OSVersionBuildNumber = static_cast<unsigned>(minor);
+	} else {
+		OSVersionNumberMajor = 0;
+		OSVersionNumberMinor = 0;
+		OSVersionBuildNumber = 0;
+	}
+	OSVersionPlatformId = static_cast<unsigned>(-1);
+	OSVersionExtraInfo = "";
+#else
+	OSVersionNumberMajor = 0;
+	OSVersionNumberMinor = 0;
+	OSVersionBuildNumber = 0;
+	OSVersionPlatformId = static_cast<unsigned>(-1);
+	OSVersionExtraInfo = "";
+#endif
 }
 
 bool CPUDetectClass::CPUID(
@@ -1059,13 +1136,17 @@ void CPUDetectClass::Init_Compact_Log()
 {
 	StringClass work(0,true);
 
+#if defined(OPENW3D_PLATFORM_WINDOWS)
 	TIME_ZONE_INFORMATION time_zone;
 	GetTimeZoneInformation(&time_zone);
-	COMPACTLOG(("%d\t",time_zone.Bias));
+	COMPACTLOG(("%d	",time_zone.Bias));
+#else
+	COMPACTLOG(("%d	",0));
+#endif
 
 	OSInfoStruct os_info;
 	Get_OS_Info(os_info,OSVersionPlatformId,OSVersionNumberMajor,OSVersionNumberMinor,OSVersionBuildNumber);
-	COMPACTLOG(("%s\t",os_info.Code));
+	COMPACTLOG(("%s	",os_info.Code));
 
 	if (!stricmp(os_info.SubCode,"UNKNOWN")) {
 		COMPACTLOG(("%d\t",OSVersionBuildNumber&0xffff));
@@ -1106,6 +1187,7 @@ public:
 } _CPU_Detect_Init;
 
 
+#if defined(OPENW3D_PLATFORM_WINDOWS)
 OSInfoStruct Windows9xVersionTable[]={
 	{"WIN95",	"FINAL",		"Windows 95",								4,0,950,			4,0,950		},
 	{"WIN95",	"A",			"Windows 95a OSR1 final Update",		4,0,950,			4,0,951		},
@@ -1206,8 +1288,9 @@ OSInfoStruct Windows9xVersionTable[]={
 	{"WINME",	"RC0",		"Windows ME RC0",							4,90,2525,		4,90,2525 	},
 	{"WINME",	"RC1",		"Windows ME RC1",							4,90,2525,/*,6*/4,90,2525/*,6*/	},
 	{"WINME",	"RC2",		"Windows ME RC2",							4,90,2535,		4,90,2535	},
-	{"WINME",	"FINAL",		"Windows ME",								4,90,3000,/*,2*/4,90,3000/*,2*/	},
+	{"WINME",	"FINAL",		"Windows ME",							4,90,3000,/*,2*/4,90,3000/*,2*/	},
 };
+#endif
 
 void Get_OS_Info(
 	OSInfoStruct& os_info,
@@ -1216,6 +1299,16 @@ void Get_OS_Info(
 	unsigned OSVersionNumberMinor,
 	unsigned OSVersionBuildNumber)
 {
+#if !defined(OPENW3D_PLATFORM_WINDOWS)
+	(void)OSVersionPlatformId;
+	(void)OSVersionNumberMajor;
+	(void)OSVersionNumberMinor;
+	(void)OSVersionBuildNumber;
+	memset(&os_info, 0, sizeof(os_info));
+	os_info.Code = "UNKNOWN";
+	os_info.SubCode = "UNKNOWN";
+	os_info.VersionString = "UNKNOWN";
+#else
 	unsigned build_major=(OSVersionBuildNumber&0xff000000)>>24;
 	unsigned build_minor=(OSVersionBuildNumber&0xff0000)>>16;
 	unsigned build_sub=(OSVersionBuildNumber&0xffff);
@@ -1318,4 +1411,5 @@ void Get_OS_Info(
 		os_info.Code="UNKNOWN";
 		return;
 	}
+#endif
 }

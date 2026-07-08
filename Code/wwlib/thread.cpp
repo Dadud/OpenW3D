@@ -24,12 +24,21 @@
 #include <windows.h>
 #elif defined(OPENW3D_SDL3)
 #include <SDL3/SDL_timer.h>
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+#include <sched.h>
+#include <time.h>
 #endif
 
 #include <cassert>
 
 
-ThreadClass::ThreadClass(const char *thread_name) : mHandle(nullptr), mRunning(false)
+ThreadClass::ThreadClass(const char *thread_name) :
+#if defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+	mHandle(0),
+#else
+	mHandle(nullptr),
+#endif
+	mRunning(false)
 {
 	if (thread_name) {
 		assert(strlen(thread_name) < sizeof(ThreadName) - 1);
@@ -63,6 +72,8 @@ ThreadClass::InternalThreadFunctionReturnType INTERNAL_THREAD_FUNCTION_CALL_CONV
 		sdl_thread_priority = SDL_THREAD_PRIORITY_TIME_CRITICAL;
 	}
 	SDL_SetCurrentThreadPriority(sdl_thread_priority);
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+	// Priority changes are best-effort and usually require privileges on POSIX.
 #else
 	assert(0);
 #endif
@@ -102,6 +113,12 @@ void ThreadClass::Execute()
 	mHandle = SDL_CreateThread(Internal_Thread_Function, ThreadName, this);
 
 	mThreadID = SDL_GetThreadID(mHandle);
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+	if (pthread_create(&mHandle, nullptr, Internal_Thread_Function, this) != 0) {
+		mHandle = 0;
+		return;
+	}
+	mThreadID = static_cast<unsigned>(reinterpret_cast<uintptr_t>(mHandle));
 #else
 	assert(0);
 #endif
@@ -116,6 +133,8 @@ void ThreadClass::Set_Priority(int priority)
 		SetThreadPriority(mHandle, THREAD_PRIORITY_NORMAL + mThread_priority);
 #elif defined(OPENW3D_SDL3)
 		assert(!mHandle);
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+		// Not implemented; most POSIX targets require privileges for this.
 #else
 		assert(0);
 #endif
@@ -131,6 +150,8 @@ void ThreadClass::Stop()
 		CloseHandle(mHandle);
 #elif defined(OPENW3D_SDL3)
 		SDL_WaitThread(mHandle, NULL);
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+		pthread_join(mHandle, nullptr);
 #else
 		assert(0);
 #endif
@@ -145,6 +166,11 @@ void ThreadClass::Sleep_Ms(unsigned ms)
 	Sleep(ms);
 #elif defined(OPENW3D_SDL3)
 	SDL_Delay(ms);
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+	struct timespec ts;
+	ts.tv_sec = ms / 1000;
+	ts.tv_nsec = (ms % 1000) * 1000000L;
+	nanosleep(&ts, nullptr);
 #else
 	assert(0);
 #endif
@@ -156,6 +182,8 @@ void ThreadClass::Switch_Thread()
 	SwitchToThread();
 #elif defined(OPENW3D_SDL3)
 	SDL_Delay(0);
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+	sched_yield();
 #else
 	assert(0);
 #endif
@@ -168,6 +196,8 @@ unsigned ThreadClass::Get_Current_Thread_ID()
 	return GetCurrentThreadId();
 #elif defined(OPENW3D_SDL3)
 	return SDL_GetCurrentThreadID();
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+	return static_cast<unsigned>(reinterpret_cast<uintptr_t>(pthread_self()));
 #else
 	assert(0);
 #endif

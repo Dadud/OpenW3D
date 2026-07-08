@@ -41,24 +41,29 @@ if(SYNTAX_CHECK_ONLY)
     add_compile_options("-fsyntax-only")
 endif(SYNTAX_CHECK_ONLY)
 
-# Do we want to build with SDL3 for windows and inputs?
-cmake_dependent_option(W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3." OFF WIN32 ON)
+# Android builds get their own defaults via the toolchain file
+if(OPENW3D_ANDROID)
+    option(W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3." OFF)
+    option(W3D_BUILD_OPTION_WEBBROWSER "Build OpenW3D with webbrowser." OFF)
+    option(W3D_BUILD_OPTION_FFMPEG "Build with ffmpeg." OFF)
+    option(W3D_BUILD_OPTION_OPENAL "Build with openal." OFF)
+    option(W3D_BUILD_OPTION_FREETYPE "Build with freetype." OFF)
+else()
+    # Do we want to build with SDL3 for windows and inputs?
+    cmake_dependent_option(W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3." OFF WIN32 ON)
+    # Do we want to build with webbrowser?
+    cmake_dependent_option(W3D_BUILD_OPTION_WEBBROWSER "Build OpenW3D with webbrowser." ON WIN32 OFF)
+    # Do we want to build with ffmpeg for audio/video decoding?
+    cmake_dependent_option(W3D_BUILD_OPTION_FFMPEG "Build with ffmpeg." OFF WIN32 ON)
+    # Do we want to build with OpenAL/ffmpeg for audio playback?
+    cmake_dependent_option(W3D_BUILD_OPTION_OPENAL "Build with openal." ON W3D_BUILD_OPTION_FFMPEG OFF)
+    # Do we want to build with freetype and fontconfig for font rendering?
+    cmake_dependent_option(W3D_BUILD_OPTION_FREETYPE "Build with freetype." OFF WIN32 ON)
+endif()
 add_feature_info(SDL3Build W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3")
-
-# Do we want to build with webbrowser?
-cmake_dependent_option(W3D_BUILD_OPTION_WEBBROWSER "Build OpenW3D with webbrowser." ON WIN32 OFF)
 add_feature_info(BrowserBuild W3D_BUILD_OPTION_WEBBROWSER "Build OpenW3D with webbrowser")
-
-# Do we want to build with ffmpeg for audio/video decoding?
-cmake_dependent_option(W3D_BUILD_OPTION_FFMPEG "Build with ffmpeg." OFF WIN32 ON)
 add_feature_info(FFMpegBuild W3D_BUILD_OPTION_FFMPEG "Build OpenW3D with FFMpeg")
-
-# Do we want to build with OpenAL/ffmpeg for audio playback?
-cmake_dependent_option(W3D_BUILD_OPTION_OPENAL "Build with openal." ON W3D_BUILD_OPTION_FFMPEG OFF)
 add_feature_info(OpenALBuild W3D_BUILD_OPTION_OPENAL "Build OpenW3D with OpenAL")
-
-# Do we want to build with freetype and fontconfig for font rendering?
-cmake_dependent_option(W3D_BUILD_OPTION_FREETYPE "Build with freetype." OFF WIN32 ON)
 add_feature_info(FreetypeBuild W3D_BUILD_OPTION_FREETYPE "Build OpenW3D with freetype")
 
 option(W3D_BUILD_QT_TOOLS "Build Qt-based GUI tools." OFF)
@@ -85,6 +90,9 @@ if(W3D_BUILD_OPTION_SDL3)
     add_compile_definitions(-DOPENW3D_SDL3=1)
 elseif(WIN32)
     add_compile_definitions(-DOPENW3D_WIN32=1)
+elseif(OPENW3D_ANDROID)
+    # Android first-pass: no SDL3 yet, use POSIX compat mode
+    add_compile_definitions(-DOPENW3D_POSIX=1)
 else()
     message(FATAL_ERROR "Invalid backend")
 endif()
@@ -134,13 +142,19 @@ if(WIN32)
         include(icu)
     endif()
 else()
-    set(W3D_BUILD_OPTION_ICU ON)
-    include(icu)
+    if(NOT OPENW3D_ANDROID)
+        set(W3D_BUILD_OPTION_ICU ON)
+        include(icu)
+    endif()
 endif()
 
-include(dx9)
+if(NOT OPENW3D_ANDROID)
+    include(dx9)
+endif()
 
-include(gamespy)
+if(NOT OPENW3D_ANDROID)
+    include(gamespy)
+endif()
 
 # Add main build targets
 add_subdirectory(Code)

@@ -47,6 +47,7 @@ typedef uintptr_t UINT_PTR;
 typedef intptr_t LPARAM;
 typedef uintptr_t WPARAM;
 typedef uint32_t LRESULT;
+typedef void* FARPROC;
 
 #define TRUE 1
 #define FALSE 0

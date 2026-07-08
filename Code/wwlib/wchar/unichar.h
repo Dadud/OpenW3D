@@ -21,7 +21,12 @@
 #define UNICHAR_H
 
 #include <wchar.h>
+#include <wctype.h>
+#include <stdlib.h>
+
+#if defined(_WIN32) || defined(OPENW3D_WIN32)
 #include <windows.h>
+#endif
 
 typedef wchar_t unichar_t;
 #define u_strlen(x) wcslen(x)
@@ -31,8 +36,13 @@ typedef wchar_t unichar_t;
 #define u_vsnprintf_u(w, x, y, z) vswprintf(w, x, y, z)
 #define u_strcmp(x, y) wcscmp(x, y)
 #define u_strncmp(x, y, z) wcsncmp(x, y, z)
+#if defined(_WIN32) || defined(OPENW3D_WIN32)
 #define u_strcasecmp(x, y, z) _wcsicmp(x, y)
 #define u_strncasecmp(x, y, z, w) wcsnicmp(x, y, z)
+#else
+#define u_strcasecmp(x, y, z) wcscasecmp(x, y)
+#define u_strncasecmp(x, y, z, w) wcsncasecmp(x, y, z)
+#endif
 #define u_strpbrk(x, y) wcspbrk(x, y)
 #define u_isspace(x) iswspace(x)
 #define u_tolower(x) towlower(x)
@@ -48,6 +58,7 @@ typedef wchar_t unichar_t;
 
 inline size_t u_mbtows(unichar_t* dst, const char* src, size_t len)
 {
+#if defined(_WIN32) || defined(OPENW3D_WIN32)
 	int retval = MultiByteToWideChar (CP_UTF8, 0, src, -1, dst, len);
 
 	if (retval <= 0) {
@@ -55,10 +66,14 @@ inline size_t u_mbtows(unichar_t* dst, const char* src, size_t len)
 	}
 
 	return size_t(retval);
+#else
+	return mbstowcs(dst, src, len);
+#endif
 }
 
 inline size_t u_wstomb(char* dst, const unichar_t* src, size_t len)
 {
+#if defined(_WIN32) || defined(OPENW3D_WIN32)
 	int retval = WideCharToMultiByte(CP_UTF8, 0, src, -1, dst, len, nullptr, nullptr);
 
 	if (retval <= 0) {
@@ -66,6 +81,9 @@ inline size_t u_wstomb(char* dst, const unichar_t* src, size_t len)
 	}
 
 	return size_t(retval);
+#else
+	return wcstombs(dst, src, len);
+#endif
 }
 
 #endif // UNICHAR_H

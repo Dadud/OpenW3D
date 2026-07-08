@@ -159,10 +159,25 @@ namespace
 		SDL_free(pref_path);
 
 		return std::filesystem::path();
+#elif defined(OPENW3D_PLATFORM_POSIX)
+		const char *xdg_config = std::getenv("XDG_CONFIG_HOME");
+		std::filesystem::path base;
+		if (xdg_config != NULL && xdg_config[0] != '\0') {
+			base = Make_Absolute_Path(xdg_config);
+		} else {
+			const char *home = std::getenv("HOME");
+			if (home != NULL && home[0] != '\0') {
+				base = std::filesystem::path(home) / ".config";
+			}
+		}
+		if (!base.empty()) {
+			return base / CONFIG_ORGANIZATION / CONFIG_APPLICATION;
+		}
+		return std::filesystem::path();
 #else
 	#error OpenW3D does not have an implementation of Get_User_Config_Directory() for this platform
 #endif
-	}
+}
 
 	std::filesystem::path Get_Default_Config_File_Path()
 	{
@@ -181,7 +196,7 @@ namespace
 			return portable_config;
 		}
 
-#if defined(OPENW3D_WIN32) || defined(OPENW3D_SDL3)
+#if defined(OPENW3D_WIN32) || defined(OPENW3D_SDL3) || defined(OPENW3D_PLATFORM_POSIX)
 		std::filesystem::path config_dir = Get_User_Config_Directory();
 		if (!config_dir.empty()) {
 			return config_dir / W3D_CONF_FILENAME;

@@ -26,6 +26,8 @@
 #include <windows.h>
 #elif defined(OPENW3D_SDL3)
 #include <SDL3/SDL_thread.h>
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+#include <pthread.h>
 #endif
 
 
@@ -99,6 +101,10 @@ private:
 	using ThreadHandle = SDL_Thread *;
 	using InternalThreadFunctionReturnType = int;
 #define INTERNAL_THREAD_FUNCTION_CALL_CONVENTION SDLCALL
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+	using ThreadHandle = pthread_t;
+	using InternalThreadFunctionReturnType = void *;
+#define INTERNAL_THREAD_FUNCTION_CALL_CONVENTION
 #endif
 	static InternalThreadFunctionReturnType INTERNAL_THREAD_FUNCTION_CALL_CONVENTION Internal_Thread_Function(void *param);
 	ThreadHandle mHandle;

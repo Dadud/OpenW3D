@@ -38,6 +38,7 @@
 #include	"always.h"
 #include	"mpu.h"
 #include "math.h"
+#include <cassert>
 
 #if defined(OPENW3D_WIN32)
 #include <windows.h>

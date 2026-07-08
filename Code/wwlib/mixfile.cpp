@@ -44,6 +44,20 @@
 #include "win.h"
 #include "bittype.h"
 
+#if defined(OPENW3D_PLATFORM_POSIX)
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <cerrno>
+#include <climits>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include "../platform/platform.h"
+#include "../platform/path_compat.h"
+#endif
+
 /*
 **
 */
@@ -312,9 +326,9 @@ MixFileFactoryClass::Flush_Changes (void)
 	//
 	//	Get the path of the mix file
 	//
-	char drive[_MAX_DRIVE] = { 0 };
-	char dir[_MAX_DIR] = { 0 };
-	::_splitpath (MixFilename, drive, dir, NULL, NULL);
+	char drive[openw3d::path_compat::kMaxDrive] = { 0 };
+	char dir[openw3d::path_compat::kMaxDir] = { 0 };
+	openw3d::path_compat::split_path(MixFilename, drive, dir, nullptr, nullptr);
 	StringClass path	= drive;
 	path					+= dir;
 
@@ -365,8 +379,8 @@ MixFileFactoryClass::Flush_Changes (void)
 	//
 	//	Delete the old mix file and rename the new one
 	//
-	::DeleteFileA (MixFilename);
-	::MoveFileA (full_path, MixFilename);
+	openw3d::path_compat::delete_file(MixFilename);
+	openw3d::path_compat::move_file(full_path, MixFilename);
 
 	//
 	//	Reset the lists
@@ -597,6 +611,7 @@ void	MixFileCreator::Add_File( const char * filename, FileClass *file )
 */
 void	Add_Files( const char * dir, MixFileCreator & mix )
 {
+#if defined(OPENW3D_PLATFORM_WINDOWS)
 	BOOL bcontinue = true;
 	HANDLE hfile_find;
 	WIN32_FIND_DATAA find_info = {0};
@@ -622,6 +637,48 @@ void	Add_Files( const char * dir, MixFileCreator & mix )
 //			WWDEBUG_SAY(( "Adding file from %s %s\n", source, name ));
 		}
 	}
+	::FindClose( hfile_find );
+#elif defined(OPENW3D_PLATFORM_POSIX)
+	StringClass search_path;
+	search_path.Format( "data/makemix/%s", dir );
+	WWDEBUG_SAY(( "Adding files from %s\n", search_path.Peek_Buffer() ));
+
+	DIR *dir_handle = ::opendir(search_path.Peek_Buffer());
+	if (dir_handle == nullptr) {
+		return;
+	}
+
+	struct dirent *entry;
+	while ((entry = ::readdir(dir_handle)) != nullptr) {
+		if (entry->d_name[0] == '\0') {
+			continue;
+		}
+
+		StringClass sub_full_path;
+		sub_full_path.Format( "%s%s", search_path.Peek_Buffer(), entry->d_name );
+
+		struct stat st;
+		bool is_dir = false;
+		if (::stat(sub_full_path.Peek_Buffer(), &st) == 0) {
+			is_dir = S_ISDIR(st.st_mode);
+		}
+
+		if (is_dir) {
+			if (entry->d_name[0] != '.') {
+				StringClass sub_path;
+				sub_path.Format( "%s%s/", dir, entry->d_name );
+				Add_Files( sub_path, mix );
+			}
+		} else {
+			StringClass name;
+			name.Format( "%s%s", dir, entry->d_name );
+			StringClass source;
+			source.Format( "makemix/%s", name.Peek_Buffer() );
+			mix.Add_File( source, name );
+		}
+	}
+	::closedir(dir_handle);
+#endif
 }
 
 void	Setup_Mix_File( void )
