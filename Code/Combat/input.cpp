@@ -50,7 +50,9 @@
 #include "combat.h"
 #include "ccamera.h"
 
+#if defined(OPENW3D_WIN32)
 #include <dinput.h>
+#endif
 
 #include <stdio.h>
 #include <algorithm>

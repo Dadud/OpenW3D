@@ -42,7 +42,9 @@
 #include "string_ids.h"
 #include "translatedb.h"
 
+#if defined(OPENW3D_WIN32)
 #include <dinput.h>
+#endif
 #include "directinput.h"
 
 

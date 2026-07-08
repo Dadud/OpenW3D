@@ -44,12 +44,19 @@
 #include "vector3.h"
 #include "vector2.h"
 
-typedef enum {
-	DIK_SHIFT = 0xF0,
-	DIK_CONTROL,
-	DIK_ALT,
-	DIK_WIN,
-} DupeKeys;
+// OpenW3D @feature DIK_* keycodes are now defined in a portable header
+// so the code compiles on Linux/macOS without DirectX headers.
+#include "DIK_keycodes.h"
+
+#if defined(OPENW3D_WIN32)
+// On Windows we still link against dinput8.dll for actual keyboard/mouse
+// capture (exclusive access, raw input). The header is needed for the
+// DirectInput8Create() function pointer types.
+#include <dinput.h>
+#endif
+
+// Old local DupeKeys enum removed — DIK_SHIFT/CONTROL/ALT/WIN are now macros
+// defined in DIK_keycodes.h with the same numeric values (0xF0/0xF1/0xF2/0xF3).
 
 /*
 **

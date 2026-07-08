@@ -39,6 +39,7 @@
 #include "debug.h"
 #include "timemgr.h"
 
+#if defined(OPENW3D_WIN32)
 #include <dinput.h>
 
 /*
@@ -762,3 +763,8 @@ void	DirectInput::Update_Double_Clicks (void)
 
 	return ;
 }
+
+// OpenW3D @feature End of Windows-only DirectInput implementation.
+// On non-Windows builds (OPENW3D_SDL3 defined), the DirectInput class is
+// implemented via SDL3 in directinput_sdl3.cpp instead.
+#endif // OPENW3D_WIN32
