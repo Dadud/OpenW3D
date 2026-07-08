@@ -23,6 +23,7 @@
 #include "framgrab.h"
 #include <stdio.h>
 #include <io.h>
+#include "win32_compat.h"
 //#include <errno.h>
 
 //////////////////////////////////////////////////////////////////////

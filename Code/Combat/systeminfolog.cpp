@@ -28,6 +28,7 @@
 #include "savegame.h"
 #include "systimer.h"
 #include "specialbuilds.h"
+#include "win32_compat.h"
 
 const unsigned NUM_GAMES_LOGGED=10;
 

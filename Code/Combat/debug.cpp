@@ -46,6 +46,7 @@
 #include "combat.h"
 #include "wwmemlog.h"
 #include "FastAllocator.h"
+#include "win32_compat.h"
 
 #ifndef 	STEVES_NEW_CATCHER
 #define LOG_MEMORY 1		// enable this to turn on memory logging

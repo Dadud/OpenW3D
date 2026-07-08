@@ -262,10 +262,22 @@ set(COMBAT_SRC
     crandom.h
     debug.h
     directinput.h
+    DIK_keycodes.h
     reflist.h
     string_ids.h
     timemgr.h
 )
+
+# OpenW3D @feature Cross-platform input backend. On Windows the original
+# DirectInput implementation is used; on non-Windows the SDL3 backend in
+# directinput_sdl3.cpp provides the same DirectInput class API surface
+# without needing DirectX.
+if(WIN32)
+    list(APPEND COMBAT_SRC directinput.cpp)
+else()
+    list(APPEND COMBAT_SRC directinput_sdl3.cpp)
+    list(APPEND COMBAT_SRC DIK_keycodes.h)
+endif()
 
 # Targets to build.
 add_library(combat STATIC)
@@ -273,9 +285,19 @@ add_library(combat STATIC)
 target_link_libraries(combat PRIVATE
     wwcommon
     wwlib
-    dinput8
-    dxguid
 )
+
+if(WIN32)
+    target_link_libraries(combat PRIVATE dinput8 dxguid)
+else()
+    # OpenW3D @feature SDL3 is required for the non-Windows input backend
+    if(TARGET SDL3::SDL3-shared)
+        target_link_libraries(combat PRIVATE SDL3::SDL3-shared)
+    endif()
+    if(TARGET SDL3::SDL3-static)
+        target_link_libraries(combat PRIVATE SDL3::SDL3-static)
+    endif()
+endif()
 
 target_sources(combat PRIVATE ${COMBAT_SRC})
 

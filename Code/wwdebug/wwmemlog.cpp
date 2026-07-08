@@ -46,6 +46,7 @@
 #include "FastAllocator.h"
 #include <algorithm>
 #include <thread>
+#include "win32_compat.h"
 
 #ifndef __unix
 #include <windows.h>
