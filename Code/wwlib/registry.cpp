@@ -38,8 +38,11 @@
 #include "ini.h"
 #include "inisup.h"
 #include <assert.h>
-#include <windows.h>
 #include <limits>
+
+#if defined(_WIN32)
+
+#include <windows.h>
 
 //#include "wwdebug.h"
 
@@ -732,6 +735,231 @@ void RegistryClass::Delete_Registry_Tree(char *path)
 		}
 	}
 }
+
+#else // !_WIN32 — INI-file-backed registry for non-Windows platforms
+
+// OpenW3D @feature Backported from GeneralsX (Generals-Mac-iOS-iPad)
+// On non-Windows, RegistryClass is backed by ~/.config/OpenW3D/registry.ini
+// See registryini.h / registryini.cpp for the storage implementation.
+
+#include "registryini.h"
+#include <map>
+#include <string>
+#include <string.h>
+
+namespace {
+	typedef std::map<const RegistryClass *, std::string> RegistryPathMap;
+
+	RegistryPathMap &GetRegistryPaths()
+	{
+		static RegistryPathMap paths;
+		return paths;
+	}
+
+	const std::string *GetRegistryPath(const RegistryClass *registry)
+	{
+		RegistryPathMap &paths = GetRegistryPaths();
+		RegistryPathMap::const_iterator it = paths.find(registry);
+		if (it == paths.end()) {
+			return nullptr;
+		}
+
+		return &it->second;
+	}
+}
+
+// Static member
+bool RegistryClass::IsLocked = false;
+
+// Static methods
+bool RegistryClass::Exists(const char* sub_key)
+{
+	return sub_key != nullptr && RegistryIni::SectionExists(RegistryIni::CurrentUserRoot(), sub_key);
+}
+
+void RegistryClass::Delete_Registry_Tree(char* path)
+{
+	if (path != nullptr && !IsLocked) {
+		RegistryIni::ClearSection(RegistryIni::CurrentUserRoot(), path);
+	}
+}
+
+void RegistryClass::Load_Registry(const char*, char*, char*) {}
+void RegistryClass::Save_Registry(const char*, char*) {}
+
+// Constructor/Destructor
+RegistryClass::RegistryClass(const char* sub_key, bool create) : Key(0), IsValid(false)
+{
+	if (sub_key != nullptr && sub_key[0] != '\0') {
+		GetRegistryPaths()[this] = sub_key;
+		IsValid = true;
+	}
+}
+
+RegistryClass::~RegistryClass()
+{
+	GetRegistryPaths().erase(this);
+	IsValid = false;
+}
+
+// Int methods
+int RegistryClass::Get_Int(const char* name, int def_value)
+{
+	const std::string *path = GetRegistryPath(this);
+	unsigned int value = 0;
+	if (path == nullptr || !RegistryIni::ReadUnsignedInt(RegistryIni::CurrentUserRoot(), path->c_str(), name, value)) {
+		return def_value;
+	}
+
+	return static_cast<int>(value);
+}
+
+void RegistryClass::Set_Int(const char* name, int value)
+{
+	const std::string *path = GetRegistryPath(this);
+	if (path == nullptr || IsLocked) {
+		return;
+	}
+
+	RegistryIni::WriteUnsignedInt(RegistryIni::CurrentUserRoot(), path->c_str(), name, static_cast<unsigned int>(value));
+}
+
+// Bool methods
+bool RegistryClass::Get_Bool(const char* name, bool def_value) { return Get_Int(name, def_value ? 1 : 0) != 0; }
+void RegistryClass::Set_Bool(const char* name, bool value) { Set_Int(name, value ? 1 : 0); }
+
+// Float methods
+float RegistryClass::Get_Float(const char* name, float def_value)
+{
+	union {
+		float f;
+		unsigned int u;
+	} value;
+
+	value.f = def_value;
+	const std::string *path = GetRegistryPath(this);
+	if (path == nullptr || !RegistryIni::ReadUnsignedInt(RegistryIni::CurrentUserRoot(), path->c_str(), name, value.u)) {
+		return def_value;
+	}
+
+	return value.f;
+}
+
+void RegistryClass::Set_Float(const char* name, float value)
+{
+	union {
+		float f;
+		unsigned int u;
+	} bits;
+
+	bits.f = value;
+	const std::string *path = GetRegistryPath(this);
+	if (path == nullptr || IsLocked) {
+		return;
+	}
+
+	RegistryIni::WriteUnsignedInt(RegistryIni::CurrentUserRoot(), path->c_str(), name, bits.u);
+}
+
+// String methods (char*)
+char* RegistryClass::Get_String(const char* name, char* value, int value_size, const char* default_string)
+{
+	std::string storedValue;
+	const std::string *path = GetRegistryPath(this);
+	const char *source = default_string == nullptr ? "" : default_string;
+
+	if (path != nullptr && RegistryIni::ReadString(RegistryIni::CurrentUserRoot(), path->c_str(), name, storedValue)) {
+		source = storedValue.c_str();
+	}
+
+	if (value != nullptr && value_size > 0) {
+		strncpy(value, source, value_size - 1);
+		value[value_size - 1] = '\0';
+	}
+
+	return value;
+}
+
+void RegistryClass::Get_String(const char* name, StringClass& string, const char* default_string)
+{
+	std::string storedValue;
+	const std::string *path = GetRegistryPath(this);
+	if (path != nullptr && RegistryIni::ReadString(RegistryIni::CurrentUserRoot(), path->c_str(), name, storedValue)) {
+		string = storedValue.c_str();
+		return;
+	}
+
+	string = default_string == nullptr ? "" : default_string;
+}
+
+void RegistryClass::Set_String(const char* name, const char* value)
+{
+	const std::string *path = GetRegistryPath(this);
+	if (path == nullptr || IsLocked) {
+		return;
+	}
+
+	RegistryIni::WriteString(RegistryIni::CurrentUserRoot(), path->c_str(), name, value == nullptr ? "" : value);
+}
+
+// Binary methods — stored as hex strings
+void RegistryClass::Get_Bin(const char* name, void* buffer, int buffer_size)
+{
+	// Binary not supported in INI fallback — zero the buffer
+	if (buffer != nullptr && buffer_size > 0) {
+		memset(buffer, 0, buffer_size);
+	}
+}
+
+int RegistryClass::Get_Bin_Size(const char* name)
+{
+	return 0;
+}
+
+void RegistryClass::Set_Bin(const char* name, const void* buffer, int buffer_size)
+{
+	// Binary not supported in INI fallback
+}
+
+// Value list methods
+void RegistryClass::Get_Value_List(DynamicVectorClass<StringClass>& list)
+{
+	const std::string *path = GetRegistryPath(this);
+	if (path == nullptr) {
+		return;
+	}
+
+	std::vector<std::string> keys;
+	if (!RegistryIni::ListValues(RegistryIni::CurrentUserRoot(), path->c_str(), keys)) {
+		return;
+	}
+
+	for (std::vector<std::string>::const_iterator it = keys.begin(); it != keys.end(); ++it) {
+		list.Add(it->c_str());
+	}
+}
+
+void RegistryClass::Delete_Value(const char* name)
+{
+	const std::string *path = GetRegistryPath(this);
+	if (path == nullptr || IsLocked) {
+		return;
+	}
+
+	RegistryIni::DeleteValue(RegistryIni::CurrentUserRoot(), path->c_str(), name);
+}
+
+void RegistryClass::Deleta_All_Values()
+{
+	const std::string *path = GetRegistryPath(this);
+	if (path == nullptr || IsLocked) {
+		return;
+	}
+
+	RegistryIni::ClearSection(RegistryIni::CurrentUserRoot(), path->c_str());
+}
+
+#endif // _WIN32
 
 
 

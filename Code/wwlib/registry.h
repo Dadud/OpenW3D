@@ -96,9 +96,9 @@ public:
 	// Delete support
 	void	Delete_Value( const char * name);
 	void	Deleta_All_Values( void );
-
 	// Read only.
 	static void Set_Read_Only(bool set) {IsLocked = set;}
+
 
 	//
 	// Bulk registry operations. BE VERY VERY CAREFUL USING THESE
@@ -110,9 +110,15 @@ public:
 
 private:
 
+#if defined(_WIN32)
 	static void Delete_Registry_Values(HKEY key);
 	static void Save_Registry_Tree(char *path, INIClass *ini);
 	static void Save_Registry_Values(HKEY key, char *path, INIClass *ini);
+#else
+	static void Delete_Registry_Values(void *key) {}
+	static void Save_Registry_Tree(char *path, INIClass *ini) {}
+	static void Save_Registry_Values(void *key, char *path, INIClass *ini) {}
+#endif
 
 
 	void *	Key;

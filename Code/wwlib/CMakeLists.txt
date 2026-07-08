@@ -40,6 +40,7 @@ set(WWLIB_SRC
     realcrc.cpp
     refcount.cpp
     registry.cpp
+    registryini.cpp
     rndstrng.cpp
     slnode.cpp
     straw.cpp
@@ -116,6 +117,7 @@ set(WWLIB_SRC
     ref_ptr.h
     refcount.h
     registry.h
+    registryini.h
     rndstraw.h
     rndstrng.h
     rng.h
@@ -139,6 +141,7 @@ set(WWLIB_SRC
     verchk.h
     widestring.h
     win.h
+    win32_compat.h
     WWCOMUtil.h
     wwdialog.cpp
     wwdialog.h
