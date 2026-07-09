@@ -168,6 +168,77 @@
                 "W3D_TOOLS": "OFF",
                 "W3D_BUILD_OPTION_SDL3": "OFF"
             }
+        },
+        {
+            "name": "sdl3-shell",
+            "inherits": "default",
+            "hidden": true,
+            "displayName": "Portable SDL3 platform shell",
+            "description": "Build minimal SDL3 window/event shell with NULL renderer.",
+            "cacheVariables": {
+                "W3D_RENDERER": "NULL",
+                "W3D_PLATFORM_SHELL": "ON",
+                "W3D_CLIENT": "OFF",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_SDL3": "ON",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF",
+                "W3D_BUILD_QT_TOOLS": "OFF",
+                "OPENW3D_SDL3_SOURCE_DIR": "C:/Users/Dadud/android-dev/SDL3"
+            }
+        },
+        {
+            "name": "windows-sdl3-shell",
+            "inherits": "sdl3-shell",
+            "displayName": "Windows SDL3 platform shell",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "linux-sdl3-shell",
+            "inherits": "sdl3-shell",
+            "displayName": "Linux SDL3 platform shell",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "macos-sdl3-shell",
+            "inherits": "sdl3-shell",
+            "displayName": "macOS SDL3 platform shell",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "android-sdl3-shell",
+            "inherits": "sdl3-shell",
+            "displayName": "Android arm64 SDL3 platform shell",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/android-sdl3-shell",
+            "cacheVariables": {
+                "W3D_RENDERER": "NULL",
+                "W3D_PLATFORM_SHELL": "ON",
+                "W3D_CLIENT": "OFF",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_SDL3": "ON",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF",
+                "W3D_BUILD_QT_TOOLS": "OFF",
+                "OPENW3D_SDL3_SOURCE_DIR": "C:/Users/Dadud/android-dev/SDL3",
+                "CMAKE_TOOLCHAIN_FILE": "cmake/android-aarch64.cmake"
+            }
         }
     ],
     "buildPresets": [
@@ -239,6 +310,34 @@
             "configurePreset": "android-dxvk-probe",
             "displayName": "Build android-dxvk-probe",
             "description": "Build android-dxvk-probe",
+            "configuration": "Release"
+        },
+        {
+            "name": "windows-sdl3-shell",
+            "configurePreset": "windows-sdl3-shell",
+            "displayName": "Build windows-sdl3-shell",
+            "description": "Build windows-sdl3-shell",
+            "configuration": "Release"
+        },
+        {
+            "name": "linux-sdl3-shell",
+            "configurePreset": "linux-sdl3-shell",
+            "displayName": "Build linux-sdl3-shell",
+            "description": "Build linux-sdl3-shell",
+            "configuration": "Release"
+        },
+        {
+            "name": "macos-sdl3-shell",
+            "configurePreset": "macos-sdl3-shell",
+            "displayName": "Build macos-sdl3-shell",
+            "description": "Build macos-sdl3-shell",
+            "configuration": "Release"
+        },
+        {
+            "name": "android-sdl3-shell",
+            "configurePreset": "android-sdl3-shell",
+            "displayName": "Build android-sdl3-shell",
+            "description": "Build android-sdl3-shell",
             "configuration": "Release"
         }
     ],
@@ -370,6 +469,58 @@
                 {
                     "type": "build",
                     "name": "android-dxvk-probe"
+                }
+            ]
+        },
+        {
+            "name": "windows-sdl3-shell",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "windows-sdl3-shell"
+                },
+                {
+                    "type": "build",
+                    "name": "windows-sdl3-shell"
+                }
+            ]
+        },
+        {
+            "name": "linux-sdl3-shell",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "linux-sdl3-shell"
+                },
+                {
+                    "type": "build",
+                    "name": "linux-sdl3-shell"
+                }
+            ]
+        },
+        {
+            "name": "macos-sdl3-shell",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "macos-sdl3-shell"
+                },
+                {
+                    "type": "build",
+                    "name": "macos-sdl3-shell"
+                }
+            ]
+        },
+        {
+            "name": "android-sdl3-shell",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "android-sdl3-shell"
+                },
+                {
+                    "type": "build",
+                    "name": "android-sdl3-shell"
                 }
             ]
         }

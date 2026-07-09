@@ -1,10 +1,10 @@
 #include "ProcessManager.h"
 
-#if defined(OPENW3D_WIN32)
+#if defined(OPENW3D_SDL3)
+#include <SDL3/SDL_timer.h>
+#elif defined(OPENW3D_WIN32)
 #include "wwstring.h"
 #include <windows.h>
-#elif defined(OPENW3D_SDL3)
-#include <SDL3/SDL_timer.h>
 #elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
 #include <cerrno>
 #include <csignal>
@@ -16,17 +16,17 @@
 
 Process::~Process()
 {
-#if defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
+#if defined(OPENW3D_SDL3)
+	if (mHandle) {
+		SDL_DestroyProcess(mHandle);
+	}
+#elif defined(OPENW3D_WIN32)
+	if (mHandle) {
+		CloseHandle(mHandle);
+	}
+#elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
 	if (mHandle > 0) {
 		// Process handles are just pids on POSIX; no object to close.
-	}
-#else
-	if (mHandle) {
-#if defined(OPENW3D_WIN32)
-		CloseHandle(mHandle);
-#elif defined(OPENW3D_SDL3)
-		SDL_DestroyProcess(mHandle);
-#endif
 	}
 #endif
 }
@@ -36,7 +36,19 @@ bool Process::Wait(bool block)
 	if (!mHandle) {
 		return true;
 	}
-#if defined(OPENW3D_WIN32)
+#if defined(OPENW3D_SDL3)
+	int exit_code;
+	while (!SDL_WaitProcess(mHandle, block, &exit_code)) {
+		if (!block) {
+			return false;
+		}
+		SDL_Delay(100);
+	}
+	SDL_DestroyProcess(mHandle);
+	mReturnCode = exit_code;
+	mHandle = nullptr;
+	return true;
+#elif defined(OPENW3D_WIN32)
 	DWORD win32_result;
 
 	win32_result = WaitForSingleObject(mHandle, block ? INFINITE : 0);
@@ -58,18 +70,6 @@ bool Process::Wait(bool block)
 	} else {
 		return false;
 	}
-#elif defined(OPENW3D_SDL3)
-	int exit_code;
-	while (!SDL_WaitProcess(mHandle, block, &exit_code)) {
-		if (!block) {
-			return false;
-		}
-		SDL_Delay(100);
-	}
-	SDL_DestroyProcess(mHandle);
-	mReturnCode = exit_code;
-	mHandle = nullptr;
-	return true;
 #elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
 	int status = 0;
 	pid_t result = waitpid(mHandle, &status, block ? 0 : WNOHANG);
@@ -91,19 +91,19 @@ bool Process::Kill()
 		return true;
 	}
 
-#if defined(OPENW3D_WIN32)
-	if (!TerminateProcess(mHandle, 1)) {
-		return false;
-	}
-	CloseHandle(mHandle);
-	mHandle = nullptr;
-	mReturnCode = -1;
-	return true;
-#elif defined(OPENW3D_SDL3)
+#if defined(OPENW3D_SDL3)
 	if (!SDL_KillProcess(mHandle, true)) {
 		return false;
 	}
 	SDL_DestroyProcess(mHandle);
+	mHandle = nullptr;
+	mReturnCode = -1;
+	return true;
+#elif defined(OPENW3D_WIN32)
+	if (!TerminateProcess(mHandle, 1)) {
+		return false;
+	}
+	CloseHandle(mHandle);
 	mHandle = nullptr;
 	mReturnCode = -1;
 	return true;
@@ -122,7 +122,15 @@ Process *ProcessManager::Create_Process(const char * const *args)
 	if (!args || !args[0] || !args[0][0]) {
 		return nullptr;
 	}
-#if defined(OPENW3D_WIN32)
+#if defined(OPENW3D_SDL3)
+	SDL_Process *sdl_process = SDL_CreateProcess(args, false);
+	if (!sdl_process) {
+		return nullptr;
+	}
+	auto props = SDL_GetProcessProperties(sdl_process);
+	auto pid = SDL_GetNumberProperty(props, SDL_PROP_PROCESS_PID_NUMBER, -1);
+	return new Process(sdl_process, pid);
+#elif defined(OPENW3D_WIN32)
 	StringClass command_line;
 	for (size_t i = 0; args[i]; i++) {
 		bool escape_arg = strchr(args[i], ' ') != nullptr;
@@ -145,14 +153,6 @@ Process *ProcessManager::Create_Process(const char * const *args)
 	}
 	CloseHandle(process_information.hThread);
 	return new Process(process_information.hProcess, process_information.dwProcessId);
-#elif defined(OPENW3D_SDL3)
-	SDL_Process *sdl_process = SDL_CreateProcess(args, false);
-	if (!sdl_process) {
-		return nullptr;
-	}
-	auto props = SDL_GetProcessProperties(sdl_process);
-	auto pid = SDL_GetNumberProperty(props, SDL_PROP_PROCESS_PID_NUMBER, -1);
-	return new Process(sdl_process, pid);
 #elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
 	pid_t pid = fork();
 	if (pid < 0) {

@@ -9,6 +9,7 @@ set(CMAKE_SYSTEM_PROCESSOR aarch64)
 
 # NDK paths
 set(ANDROID_NDK_ROOT "C:/Users/Dadud/android-dev/sdk/ndk/27.2.12479018")
+set(ANDROID_NDK "${ANDROID_NDK_ROOT}" CACHE PATH "Android NDK root for third-party CMake projects")
 set(NDK_TOOLCHAIN_PREFIX "${ANDROID_NDK_ROOT}/toolchains/llvm/prebuilt/windows-x86_64")
 
 set(ANDROID_ABI "arm64-v8a")
@@ -48,15 +49,29 @@ set(CMAKE_EXE_LINKER_FLAGS_INIT "--target=${AARCH64_TRIPLE} -fuse-ld=lld")
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "--target=${AARCH64_TRIPLE} -fuse-ld=lld")
 set(CMAKE_STATIC_LINKER_FLAGS_INIT "")
 
-# OpenW3D build options for Android (command-line -D will override these)
-# All OFF for first-pass — no external deps yet
-set(W3D_BUILD_OPTION_SDL3 OFF CACHE BOOL "" FORCE)
-set(W3D_BUILD_OPTION_FFMPEG OFF CACHE BOOL "" FORCE)
-set(W3D_BUILD_OPTION_OPENAL OFF CACHE BOOL "" FORCE)
-set(W3D_BUILD_OPTION_BINK OFF CACHE BOOL "" FORCE)
-set(W3D_BUILD_OPTION_WEBBROWSER OFF CACHE BOOL "" FORCE)
-set(W3D_BUILD_OPTION_FREETYPE OFF CACHE BOOL "" FORCE)
-set(W3D_BUILD_QT_TOOLS OFF CACHE BOOL "" FORCE)
+# OpenW3D Android defaults. Command-line -D / presets must be able to opt into
+# SDL3/DXVK/platform-shell work, so only provide defaults when unset.
+if(NOT DEFINED W3D_BUILD_OPTION_SDL3)
+    set(W3D_BUILD_OPTION_SDL3 OFF CACHE BOOL "Build OpenW3D with SDL3.")
+endif()
+if(NOT DEFINED W3D_BUILD_OPTION_FFMPEG)
+    set(W3D_BUILD_OPTION_FFMPEG OFF CACHE BOOL "Build with ffmpeg.")
+endif()
+if(NOT DEFINED W3D_BUILD_OPTION_OPENAL)
+    set(W3D_BUILD_OPTION_OPENAL OFF CACHE BOOL "Build with openal.")
+endif()
+if(NOT DEFINED W3D_BUILD_OPTION_BINK)
+    set(W3D_BUILD_OPTION_BINK OFF CACHE BOOL "Build with bink.")
+endif()
+if(NOT DEFINED W3D_BUILD_OPTION_WEBBROWSER)
+    set(W3D_BUILD_OPTION_WEBBROWSER OFF CACHE BOOL "Build OpenW3D with webbrowser.")
+endif()
+if(NOT DEFINED W3D_BUILD_OPTION_FREETYPE)
+    set(W3D_BUILD_OPTION_FREETYPE OFF CACHE BOOL "Build with freetype.")
+endif()
+if(NOT DEFINED W3D_BUILD_QT_TOOLS)
+    set(W3D_BUILD_QT_TOOLS OFF CACHE BOOL "Build Qt-based GUI tools.")
+endif()
 set(OPENW3D_ANDROID ON CACHE BOOL "Building for Android" FORCE)
 
 # Android defaults to a portable core/static-lib build. These are deliberately

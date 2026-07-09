@@ -97,6 +97,10 @@ if(NOT W3D_RENDERER STREQUAL "NULL")
 endif()
 add_subdirectory(wwutil)
 
+if(W3D_PLATFORM_SHELL)
+    add_subdirectory(PlatformShell)
+endif()
+
 # Final targets
 if(NOT W3D_RENDERER STREQUAL "NULL")
     add_subdirectory(BandTest)

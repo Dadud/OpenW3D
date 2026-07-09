@@ -46,6 +46,15 @@ This tier must stay green for Windows, Linux, macOS, Android, iOS, and web toolc
 
 Goal: SDL3/window/input loop compiles and links without renderer-specific code where possible.
 
+Current target: `openw3d_platform_shell`, a minimal SDL3 executable that initializes SDL, creates a window, pumps events briefly, and exits. It deliberately uses `W3D_RENDERER=NULL` so it exercises platform/windowing without bringing the full game, renderer, audio, or physics stack back in.
+
+Presets:
+
+- `windows-sdl3-shell`
+- `linux-sdl3-shell`
+- `macos-sdl3-shell`
+- `android-sdl3-shell`
+
 Targets:
 
 - Linux SDL3
