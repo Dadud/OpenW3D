@@ -116,7 +116,7 @@
 #include "animatedsoundmgr.h"
 
 
-#ifndef _UNIX
+#ifdef _WIN32
 #include "framgrab.h"
 #endif
 

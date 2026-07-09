@@ -239,6 +239,48 @@
                 "OPENW3D_SDL3_SOURCE_DIR": "C:/Users/Dadud/android-dev/SDL3",
                 "CMAKE_TOOLCHAIN_FILE": "cmake/android-aarch64.cmake"
             }
+        },
+        {
+            "name": "windows-native-renderer-probe",
+            "inherits": "default",
+            "displayName": "Windows native D3D9 renderer probe",
+            "description": "Configure full renderer libraries but keep final apps/tools disabled; build target ww3d2 for the probe.",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "W3D_RENDERER": "NATIVE",
+                "W3D_CLIENT": "OFF",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_WEBBROWSER": "OFF",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF"
+            }
+        },
+        {
+            "name": "android-dxvk-compile-probe",
+            "displayName": "Android arm64 DXVK compile-only renderer probe",
+            "description": "Compile renderer targets against real DXVK/Wine D3D9 headers before libdxvk_d3d9 exists.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/android-dxvk-compile-probe",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "cmake/android-aarch64.cmake",
+                "W3D_RENDERER": "DXVK",
+                "W3D_RENDERER_COMPILE_ONLY": "ON",
+                "DXVK_INCLUDE_PATH": "C:/Users/Dadud/projects/engine-reference/fbraz3-dxvk/include/native/directx",
+                "W3D_CLIENT": "OFF",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_SDL3": "OFF",
+                "W3D_BUILD_OPTION_WEBBROWSER": "OFF",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF"
+            }
         }
     ],
     "buildPresets": [
@@ -338,6 +380,20 @@
             "configurePreset": "android-sdl3-shell",
             "displayName": "Build android-sdl3-shell",
             "description": "Build android-sdl3-shell",
+            "configuration": "Release"
+        },
+        {
+            "name": "windows-native-renderer-probe",
+            "configurePreset": "windows-native-renderer-probe",
+            "displayName": "Build windows-native-renderer-probe",
+            "description": "Build windows-native-renderer-probe",
+            "configuration": "Release"
+        },
+        {
+            "name": "android-dxvk-compile-probe",
+            "configurePreset": "android-dxvk-compile-probe",
+            "displayName": "Build android-dxvk-compile-probe",
+            "description": "Build android-dxvk-compile-probe",
             "configuration": "Release"
         }
     ],
@@ -521,6 +577,32 @@
                 {
                     "type": "build",
                     "name": "android-sdl3-shell"
+                }
+            ]
+        },
+        {
+            "name": "windows-native-renderer-probe",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "windows-native-renderer-probe"
+                },
+                {
+                    "type": "build",
+                    "name": "windows-native-renderer-probe"
+                }
+            ]
+        },
+        {
+            "name": "android-dxvk-compile-probe",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "android-dxvk-compile-probe"
+                },
+                {
+                    "type": "build",
+                    "name": "android-dxvk-compile-probe"
                 }
             ]
         }

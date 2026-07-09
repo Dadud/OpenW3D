@@ -2,4 +2,8 @@
 
 #include "dxvk_wrapper_compat.h"
 
-#include <dxvk/d3dx9core.h>
+#if defined(__GNUC__) || defined(__clang__)
+#include_next <d3dx9core.h>
+#else
+#include <d3dx9core.h>
+#endif

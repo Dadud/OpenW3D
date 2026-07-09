@@ -32,7 +32,6 @@ set(WW3D2_SRC
     dynamesh.cpp
     font3d.cpp
     formconv.cpp
-    framgrab.cpp
     hanim.cpp
     hanimmgr.cpp
     hcanim.cpp
@@ -219,15 +218,29 @@ set(WW3D2_SRC
     ww3dtrig.h
 )
 
+if(WIN32)
+    list(APPEND WW3D2_SRC framgrab.cpp)
+endif()
+
 # Targets to build.
 add_library(ww3d2 STATIC)
 
 target_link_libraries(ww3d2 PRIVATE
     wwcommon
     wwlib
-    vfw32
-    winmm
 )
+
+if(WIN32)
+    target_link_libraries(ww3d2 PRIVATE vfw32 winmm)
+endif()
+
+if(W3D_RENDERER STREQUAL "DXVK")
+    target_compile_definitions(ww3d2 PRIVATE
+        _MAX_PATH=260
+        _MAX_FNAME=256
+        _MAX_EXT=256
+    )
+endif()
 
 if(TARGET Freetype::Freetype AND TARGET Fontconfig::Fontconfig)
     target_link_libraries(ww3d2 PUBLIC Freetype::Freetype Fontconfig::Fontconfig)
@@ -243,9 +256,19 @@ if (W3D_TOOLS)
     target_link_libraries(ww3d2e PRIVATE
         wwcommon
         wwlib
-        vfw32
-        winmm
     )
+
+    if(WIN32)
+        target_link_libraries(ww3d2e PRIVATE vfw32 winmm)
+    endif()
+
+    if(W3D_RENDERER STREQUAL "DXVK")
+        target_compile_definitions(ww3d2e PRIVATE
+            _MAX_PATH=260
+            _MAX_FNAME=256
+            _MAX_EXT=256
+        )
+    endif()
 
     if(TARGET Freetype::Freetype AND TARGET Fontconfig::Fontconfig)
         target_link_libraries(ww3d2e PUBLIC Freetype::Freetype Fontconfig::Fontconfig)
