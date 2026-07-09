@@ -27,6 +27,8 @@ Modern/tools
   retail import, convert, cook, validate, package, hot reload
 ```
 
+Install discovery rules are documented in `docs/RETAIL_INSTALL_DISCOVERY.md`: launcher metadata and explicit paths are preferred, historical defaults are hints, and content signatures decide whether a candidate is valid.
+
 ## Backend policy
 
 - SDL3 is the platform boundary.
