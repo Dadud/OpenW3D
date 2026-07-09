@@ -73,6 +73,11 @@ void __cdecl Print_Win32Error(unsigned int win32Error);
 #endif // _DEBUG
 
 #else // _WIN32
+using HINSTANCE = void *;
+using HWND = void *;
+extern HINSTANCE	ProgramInstance;
+extern HWND			MainWindow;
+extern bool GameInFocus;
 //#include <unistd.h>
 #endif // _WIN32
 

@@ -118,7 +118,7 @@ void ThreadClass::Execute()
 		mHandle = 0;
 		return;
 	}
-	mThreadID = static_cast<unsigned>(reinterpret_cast<uintptr_t>(mHandle));
+	mThreadID = static_cast<unsigned>(mHandle);
 #else
 	assert(0);
 #endif
@@ -197,7 +197,7 @@ unsigned ThreadClass::Get_Current_Thread_ID()
 #elif defined(OPENW3D_SDL3)
 	return SDL_GetCurrentThreadID();
 #elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
-	return static_cast<unsigned>(reinterpret_cast<uintptr_t>(pthread_self()));
+	return static_cast<unsigned>(pthread_self());
 #else
 	assert(0);
 #endif

@@ -90,6 +90,8 @@ int Show_Message_Box(unsigned int flags, const char *message, const char *title)
 	}
 	return clicked_button;
 #else
-	assert(0);
+	(void)message;
+	(void)title;
+	return MESSAGEBOX_BUTTON_CANCEL;
 #endif
 }

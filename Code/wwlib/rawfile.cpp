@@ -54,12 +54,20 @@
 
 #include	"always.h"
 #include	"rawfile.h"
+#include	"bittype.h"
 #include	<stddef.h>
 #include	<stdio.h>
 #include	<stdlib.h>
 #include	<string.h>
 #include	<limits.h>
 #include	<errno.h>
+#if defined(OPENW3D_PLATFORM_POSIX)
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <time.h>
+#include <unistd.h>
+#endif
 #if defined(OPENW3D_SDL3)
 #ifdef _WIN32
 #include <io.h>
@@ -67,6 +75,7 @@
 #endif
 #include <SDL3/SDL.h>
 #include <cassert>
+#include <ctime>
 #include <sys/types.h>
 #include <sys/stat.h>
 #endif
@@ -423,8 +432,11 @@ int RawFileClass::Open(int rights)
 												NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 				#elif defined(OPENW3D_SDL3)
 					Handle = SDL_IOFromFile(Filename, "rb");
-				#else
-					#error "Not implemented"
+				#elif defined(OPENW3D_PLATFORM_POSIX)
+				{
+					int fd = ::open(Filename, O_RDONLY);
+					Handle = (fd < 0) ? NULL_HANDLE : reinterpret_cast<void *>(static_cast<intptr_t>(fd));
+				}
 				#endif
 				break;
 
@@ -434,8 +446,11 @@ int RawFileClass::Open(int rights)
 												NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 				#elif defined(OPENW3D_SDL3)
 					Handle = SDL_IOFromFile(Filename, "wb");
-				#else
-					#error "Not implemented"
+				#elif defined(OPENW3D_PLATFORM_POSIX)
+				{
+					int fd = ::open(Filename, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+					Handle = (fd < 0) ? NULL_HANDLE : reinterpret_cast<void *>(static_cast<intptr_t>(fd));
+				}
 				#endif
 				break;
 
@@ -450,8 +465,11 @@ int RawFileClass::Open(int rights)
 					if (Handle == nullptr) {
 						Handle = SDL_IOFromFile(Filename, "wb+");
 					}
-				#else
-					#error "Not implemented"
+				#elif defined(OPENW3D_PLATFORM_POSIX)
+				{
+					int fd = ::open(Filename, O_RDWR | O_CREAT, 0644);
+					Handle = (fd < 0) ? NULL_HANDLE : reinterpret_cast<void *>(static_cast<intptr_t>(fd));
+				}
 				#endif
 				break;
 		}
@@ -527,11 +545,14 @@ bool RawFileClass::Is_Available(int forced)
 
 		#if defined(OPENW3D_WIN32)
 			Handle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ,
-											NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+										NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		#elif defined(OPENW3D_SDL3)
 			Handle = SDL_IOFromFile(Filename,"rb");
-		#else
-			#error "Not implemented"
+		#elif defined(OPENW3D_PLATFORM_POSIX)
+		{
+			int fd = ::open(Filename, O_RDONLY);
+			Handle = (fd < 0) ? NULL_HANDLE : reinterpret_cast<void *>(static_cast<intptr_t>(fd));
+		}
 		#endif
 
 		if (Handle == NULL_HANDLE) {
@@ -554,6 +575,18 @@ bool RawFileClass::Is_Available(int forced)
 		if (!closeok) {
 			Error(EIO, false, Filename);
 		}
+	#elif defined(OPENW3D_PLATFORM_POSIX)
+	{
+		int fd = static_cast<int>(reinterpret_cast<intptr_t>(Handle));
+		if (fd >= 0) {
+			closeok = (::close(fd) == 0);
+		} else {
+			closeok = false;
+		}
+		if (!closeok) {
+			Error(errno, false, Filename);
+		}
+	}
 	#else
 		#error "Not implemented"
 	#endif
@@ -600,6 +633,18 @@ void RawFileClass::Close(void)
 			if (!closeok) {
 				Error(EIO, false, Filename);
 			}
+		#elif defined(OPENW3D_PLATFORM_POSIX)
+		{
+			int fd = static_cast<int>(reinterpret_cast<intptr_t>(Handle));
+			if (fd >= 0) {
+				closeok = (::close(fd) == 0);
+			} else {
+				closeok = false;
+			}
+			if (!closeok) {
+				Error(errno, false, Filename);
+			}
+		}
 		#else
 			#error "Not implemented"
 		#endif
@@ -676,6 +721,18 @@ int RawFileClass::Read(void * buffer, int size)
 			if (bytesread == 0) {
 				readok = (SDL_GetIOStatus(Handle) != SDL_IO_STATUS_ERROR);
 			}
+		#elif defined(OPENW3D_PLATFORM_POSIX)
+		{
+			int fd = static_cast<int>(reinterpret_cast<intptr_t>(Handle));
+			ssize_t result = (fd >= 0) ? ::read(fd, buffer, size) : -1;
+			if (result < 0) {
+				bytesread = 0;
+				readok = false;
+			} else {
+				bytesread = static_cast<int>(result);
+				readok = true;
+			}
+		}
 		#else
 			#error "Not implemented"
 		#endif
@@ -686,8 +743,8 @@ int RawFileClass::Read(void * buffer, int size)
 		if (! readok) {
 			#if defined(OPENW3D_WIN32)
 				Error(GetLastError(), true, Filename);
-			#elif defined(OPENW3D_SDL3)
-				Error(EIO, true, Filename);
+			#elif defined(OPENW3D_SDL3) || defined(OPENW3D_PLATFORM_POSIX)
+				Error(errno, true, Filename);
 			#else
 				#error "Not implemented"
 			#endif
@@ -755,6 +812,19 @@ int RawFileClass::Write(void const * buffer, int size)
 		if (!writeok) {
 			Error(EIO, false, Filename);
 		}
+	#elif defined(OPENW3D_PLATFORM_POSIX)
+	{
+		int fd = static_cast<int>(reinterpret_cast<intptr_t>(Handle));
+		ssize_t result = (fd >= 0) ? ::write(fd, buffer, size) : -1;
+		if (result < 0) {
+			byteswritten = 0;
+			writeok = false;
+			Error(errno, false, Filename);
+		} else {
+			byteswritten = static_cast<int>(result);
+			writeok = (byteswritten == size);
+		}
+	}
 	#else
 		#error "Not implemented"
 	#endif
@@ -896,6 +966,16 @@ int RawFileClass::Size(void)
 			}
 		#elif defined(OPENW3D_SDL3)
 			size = SDL_GetIOSize(Handle);
+		#elif defined(OPENW3D_PLATFORM_POSIX)
+		{
+			int fd = static_cast<int>(reinterpret_cast<intptr_t>(Handle));
+			struct stat st;
+			if (fd >= 0 && ::fstat(fd, &st) == 0) {
+				size = static_cast<int>(st.st_size);
+			} else {
+				size = 0;
+			}
+		}
 		#else
 			#error "Not implemented"
 		#endif
@@ -1020,6 +1100,12 @@ int RawFileClass::Delete(void)
 				Error(EIO, false, Filename);
 				return(false);
 			}
+		#elif defined(OPENW3D_PLATFORM_POSIX)
+			deleteok = (::unlink(Filename) == 0);
+			if (!deleteok) {
+				Error(errno, false, Filename);
+				return(false);
+			}
 		#else
 			#error "Not implemented"
 		#endif
@@ -1035,8 +1121,8 @@ int RawFileClass::Delete(void)
 #if defined(OPENW3D_SDL3)
 static SDL_Time FatTime_to_Nanoseconds(Uint32 fatDateTime)
 {
-	Uint16 fatDate = static_cast<Uint16>(fatDateTime >> 16);
-	Uint16 fatTime = static_cast<Uint16>(fatDateTime & 0xffff);
+	uint16 fatDate = static_cast<uint16>(fatDateTime >> 16);
+	uint16 fatTime = static_cast<uint16>(fatDateTime & 0xffff);
 	SDL_DateTime datetime;
 	SDL_zero(datetime);
 	datetime.year = 1980 + (fatDate >> 9);
@@ -1056,9 +1142,39 @@ static Uint32 Seconds_to_FatTime(time_t t)
 	SDL_DateTime datetime;
 	SDL_zero(datetime);
 	SDL_TimeToDateTime(time_ns, &datetime, true);
-	Uint16 fatDate = datetime.day | (datetime.month << 5) | SDL_max(0, datetime.year - 1980) << 9;
-	Uint16 fatTime = (datetime.second / 2) | (datetime.minute << 5) | (datetime.hour << 11);
+	uint16 fatDate = datetime.day | (datetime.month << 5) | SDL_max(0, datetime.year - 1980) << 9;
+	uint16 fatTime = (datetime.second / 2) | (datetime.minute << 5) | (datetime.hour << 11);
 	return (fatDate << 16) | fatTime;
+}
+#elif defined(OPENW3D_PLATFORM_POSIX)
+static time_t FatTime_to_TimeT(uint32 fatDateTime)
+{
+	uint16 fatDate = static_cast<uint16>(fatDateTime >> 16);
+	uint16 fatTime = static_cast<uint16>(fatDateTime & 0xffff);
+	struct tm tm;
+	memset(&tm, 0, sizeof(tm));
+	tm.tm_year = 80 + (fatDate >> 9);  // years since 1900
+	tm.tm_mon = ((fatDate >> 5) & 0x0f) - 1;  // 0-11
+	tm.tm_mday = fatDate & 0x1f;
+	tm.tm_hour = fatTime >> 11;
+	tm.tm_min = (fatTime >> 5) & 0x3f;
+	tm.tm_sec = 2 * (fatTime & 0x1f);
+	return ::timegm(&tm);
+}
+
+static uint32 TimeT_to_FatTime(time_t t)
+{
+	struct tm tm;
+#ifdef _WIN32
+	::gmtime_s(&tm, &t);
+#else
+	::gmtime_r(&t, &tm);
+#endif
+	int year = tm.tm_year - 80;  // years since 1980
+	if (year < 0) year = 0;
+	uint16 fatDate = static_cast<uint16>(((tm.tm_mday) & 0x1f) | ((tm.tm_mon + 1) << 5) | (year << 9));
+	uint16 fatTime = static_cast<uint16>(((tm.tm_sec / 2) & 0x1f) | ((tm.tm_min) << 5) | (tm.tm_hour << 11));
+	return (static_cast<uint32>(fatDate) << 16) | fatTime;
 }
 #endif
 
@@ -1112,6 +1228,15 @@ unsigned int RawFileClass::Get_Date_Time(void)
 		struct stat statbuf;
 		fstat(fd, &statbuf);
 		return Seconds_to_FatTime(statbuf.st_mtime);
+	}
+	return 0;
+#elif defined(OPENW3D_PLATFORM_POSIX)
+	int fd = static_cast<int>(reinterpret_cast<intptr_t>(Handle));
+	if (fd >= 0) {
+		struct stat statbuf;
+		if (::fstat(fd, &statbuf) == 0) {
+			return TimeT_to_FatTime(statbuf.st_mtime);
+		}
 	}
 	return 0;
 #else
@@ -1195,6 +1320,19 @@ bool RawFileClass::Set_Date_Time(unsigned int datetime)
         }
 #endif
 		return true;
+	}
+	return false;
+#elif defined(OPENW3D_PLATFORM_POSIX)
+	if (RawFileClass::Is_Open()) {
+		int fd = static_cast<int>(reinterpret_cast<intptr_t>(Handle));
+		if (fd >= 0) {
+			time_t t = FatTime_to_TimeT(datetime);
+			struct timespec times[2];
+			times[0].tv_sec = t;
+			times[0].tv_nsec = 0;
+			times[1] = times[0];
+			return (::futimens(fd, times) == 0);
+		}
 	}
 	return false;
 #else
@@ -1322,6 +1460,18 @@ int RawFileClass::Raw_Seek(int pos, int dir)
 		if (pos == -1) {
 			Error(EIO, false, Filename);
 		}
+	#elif defined(OPENW3D_PLATFORM_POSIX)
+		int whence = SEEK_SET;
+		switch (dir) {
+			case SEEK_SET: whence = SEEK_SET; break;
+			case SEEK_CUR: whence = SEEK_CUR; break;
+			case SEEK_END: whence = SEEK_END; break;
+		}
+		off_t result = ::lseek(static_cast<int>(reinterpret_cast<intptr_t>(Handle)), pos, whence);
+		if (result == static_cast<off_t>(-1)) {
+			Error(errno, false, Filename);
+		}
+		pos = static_cast<int>(result);
 	#else
 		#error "Not implemented"
 	#endif

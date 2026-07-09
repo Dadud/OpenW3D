@@ -78,6 +78,13 @@ struct OSInfoStruct {
 */
 };
 
+static void Get_OS_Info(
+	OSInfoStruct& os_info,
+	unsigned OSVersionPlatformId,
+	unsigned OSVersionNumberMajor,
+	unsigned OSVersionNumberMinor,
+	unsigned OSVersionBuildNumber);
+
 int CPUDetectClass::ProcessorType;
 int CPUDetectClass::ProcessorFamily;
 int CPUDetectClass::ProcessorModel;
@@ -1027,7 +1034,7 @@ bool CPUDetectClass::CPUID(
 
 	return true;
 #else
-	return false
+	return false;
 #endif
 }
 
@@ -1037,13 +1044,16 @@ void CPUDetectClass::Init_Processor_Log()
 {
 	StringClass work(0,true);
 
+#if defined(OPENW3D_PLATFORM_WINDOWS)
 	SYSLOG(("Operating System: "));
 	switch (OSVersionPlatformId) {
 	case VER_PLATFORM_WIN32s: SYSLOG(("Windows 3.1")); break;
 	case VER_PLATFORM_WIN32_WINDOWS: SYSLOG(("Windows 9x")); break;
 	case VER_PLATFORM_WIN32_NT: SYSLOG(("Windows NT")); break;
 	}
-	SYSLOG(("\r\n"));
+	SYSLOG(("
+\n"));
+#endif
 
 	SYSLOG(("Operating system version %d.%d\r\n",OSVersionNumberMajor,OSVersionNumberMinor));
 	SYSLOG(("Operating system build: %d.%d.%d\r\n",

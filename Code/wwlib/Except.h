@@ -81,8 +81,9 @@ typedef struct tThreadInfoType {
 	bool				Main;
 } ThreadInfoType;
 
-
-
-#endif	//_MSC_VER
+#else
+inline void Register_Thread_ID(unsigned int, const char *, bool = false) {}
+inline void Unregister_Thread_ID(unsigned int, const char *) {}
+#endif // _WIN32
 
 #endif	//EXCEPT_H

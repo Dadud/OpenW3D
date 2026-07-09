@@ -93,7 +93,14 @@ ResourceFileClass::ResourceFileClass(char const *filename) :
 	}
 }
 #else
-#error "Not implemented"
+ResourceFileClass::ResourceFileClass(char const *filename) :
+	ResourceName(NULL),
+	FileBytes(NULL),
+	FilePtr(NULL),
+	EndOfFile(NULL)
+{
+	Set_Name(filename);
+}
 #endif
 
 ResourceFileClass::~ResourceFileClass(void)

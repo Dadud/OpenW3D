@@ -25,6 +25,7 @@ target_compile_options(wwcommon INTERFACE
 )
 
 target_include_directories(wwcommon INTERFACE
+    $<$<BOOL:${OPENW3D_ANDROID}>:${CMAKE_CURRENT_SOURCE_DIR}/d3d9_stub>
     BinkMovie
     Combat
     Commando

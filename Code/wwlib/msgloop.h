@@ -40,7 +40,13 @@
 #ifndef MSGLOOP_H
 #define MSGLOOP_H
 
+#if defined(OPENW3D_PLATFORM_WINDOWS) || defined(_WIN32)
 #include <windows.h>
+#else
+using HWND = void *;
+using HACCEL = void *;
+struct MSG { int unused; };
+#endif
 
 // Main message handler.
 void Windows_Message_Handler(void);

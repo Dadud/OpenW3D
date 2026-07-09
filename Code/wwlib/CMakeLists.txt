@@ -24,7 +24,6 @@ set(WWLIB_SRC
     mixfile.cpp
     mpmath.cpp
     mpu.cpp
-    msgloop.cpp
     multilist.cpp
     mutex.cpp
     nstrdup.cpp
@@ -54,7 +53,6 @@ set(WWLIB_SRC
     verchk.cpp
     widestring.cpp
     win.cpp
-    WWCOMUtil.cpp
     wwfile.cpp
     wwstring.cpp
     xpipe.cpp
@@ -174,10 +172,13 @@ if(W3D_BUILD_OPTION_SDL3)
     target_link_libraries(wwlib PUBLIC SDL3::Headers)
 endif()
 if(WIN32)
+    list(APPEND WWLIB_SRC msgloop.cpp WWCOMUtil.cpp)
     target_link_libraries(wwlib PRIVATE
         version
         winmm
     )
+else()
+    list(APPEND WWLIB_SRC msgloop_stub.cpp)
 endif()
 
 target_sources(wwlib PRIVATE ${WWLIB_SRC})

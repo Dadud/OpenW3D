@@ -42,7 +42,27 @@
 #ifndef __VERCHK_H
 #define __VERCHK_H
 
+#if defined(OPENW3D_WIN32) || defined(_WIN32)
 #include <windows.h>
+#else
+#include <stdint.h>
+using HINSTANCE = void *;
+struct VS_FIXEDFILEINFO {
+    uint32_t dwSignature;
+    uint32_t dwStrucVersion;
+    uint32_t dwFileVersionMS;
+    uint32_t dwFileVersionLS;
+    uint32_t dwProductVersionMS;
+    uint32_t dwProductVersionLS;
+    uint32_t dwFileFlagsMask;
+    uint32_t dwFileFlags;
+    uint32_t dwFileOS;
+    uint32_t dwFileType;
+    uint32_t dwFileSubtype;
+    uint32_t dwFileDateMS;
+    uint32_t dwFileDateLS;
+};
+#endif
 
 struct FileCreationTime {
     int year;

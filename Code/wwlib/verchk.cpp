@@ -63,6 +63,7 @@
 *
 ******************************************************************************/
 bool GetVersionInfo(char* filename, VS_FIXEDFILEINFO* fileInfo) {
+#if defined(OPENW3D_WIN32) || defined(_WIN32)
 	//
 	// Get the version information for this file
 	//
@@ -90,6 +91,13 @@ bool GetVersionInfo(char* filename, VS_FIXEDFILEINFO* fileInfo) {
 		pblock = NULL;
 	}
 	return verok;
+#else
+	(void)filename;
+	if (fileInfo) {
+		memset(fileInfo, 0, sizeof(*fileInfo));
+	}
+	return false;
+#endif
 }
 
 
@@ -119,6 +127,7 @@ bool GetFileCreationTime(const char* filename, FileCreationTime* createTime)
 	}
 
 
+#if defined(OPENW3D_WIN32) || defined(_WIN32)
 ////////////////////////////////////////////////////////////////////////
 //
 //	Get_Image_File_Header
@@ -230,3 +239,12 @@ Compare_EXE_Version (HINSTANCE app_instance, const char *filename)
 
 	return retval;
 }
+#else
+int
+Compare_EXE_Version (HINSTANCE app_instance, const char *filename)
+{
+	(void)app_instance;
+	(void)filename;
+	return 0;
+}
+#endif
