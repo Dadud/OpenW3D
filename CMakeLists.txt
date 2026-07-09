@@ -47,6 +47,9 @@ if(OPENW3D_ANDROID)
 endif()
 set(W3D_RENDERER "${W3D_RENDERER_DEFAULT}" CACHE STRING "Renderer backend: NATIVE, DXVK, or NULL")
 set_property(CACHE W3D_RENDERER PROPERTY STRINGS NATIVE DXVK NULL)
+if(NOT W3D_RENDERER MATCHES "^(NATIVE|DXVK|NULL)$")
+    message(FATAL_ERROR "W3D_RENDERER must be NATIVE, DXVK, or NULL (got '${W3D_RENDERER}')")
+endif()
 add_feature_info(RendererBackend W3D_RENDERER "Renderer backend selected for this build")
 
 # Android builds get their own defaults via the toolchain file
@@ -156,7 +159,7 @@ else()
     endif()
 endif()
 
-if(NOT OPENW3D_ANDROID AND NOT W3D_RENDERER STREQUAL "NULL")
+if(NOT W3D_RENDERER STREQUAL "NULL")
     include(dx9)
 endif()
 
