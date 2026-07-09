@@ -41,6 +41,14 @@ if(SYNTAX_CHECK_ONLY)
     add_compile_options("-fsyntax-only")
 endif(SYNTAX_CHECK_ONLY)
 
+set(W3D_RENDERER_DEFAULT "NATIVE")
+if(OPENW3D_ANDROID)
+    set(W3D_RENDERER_DEFAULT "NULL")
+endif()
+set(W3D_RENDERER "${W3D_RENDERER_DEFAULT}" CACHE STRING "Renderer backend: NATIVE, DXVK, or NULL")
+set_property(CACHE W3D_RENDERER PROPERTY STRINGS NATIVE DXVK NULL)
+add_feature_info(RendererBackend W3D_RENDERER "Renderer backend selected for this build")
+
 # Android builds get their own defaults via the toolchain file
 if(OPENW3D_ANDROID)
     option(W3D_BUILD_OPTION_SDL3 "Build OpenW3D with SDL3." OFF)
@@ -148,7 +156,7 @@ else()
     endif()
 endif()
 
-if(NOT OPENW3D_ANDROID)
+if(NOT OPENW3D_ANDROID AND NOT W3D_RENDERER STREQUAL "NULL")
     include(dx9)
 endif()
 
