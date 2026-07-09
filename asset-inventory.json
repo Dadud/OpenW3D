@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "tool": "openw3d-asset-inspect",
+  "candidates": [
+    {
+      "root": "C:\\Program Files (x86)\\Steam\\steamapps\\common\\Command & Conquer Renegade",
+      "score": 155,
+      "valid": true,
+      "always_dat": true,
+      "localized_resources": false,
+      "mix_count": 27,
+      "w3d_count": 0,
+      "map_count": 0,
+      "data_file_count": 88,
+      "retail_executable_present": true,
+      "hints": ["explicit"]
+    }
+  ]
+}

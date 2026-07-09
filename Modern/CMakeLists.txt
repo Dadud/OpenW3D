@@ -38,3 +38,13 @@ elseif(UNIX)
 endif()
 
 set_target_properties(openw3d_modern PROPERTIES OUTPUT_NAME "openw3d-modern")
+
+add_executable(openw3d_asset_inspect
+    tools/asset_inspect.cpp
+)
+target_compile_features(openw3d_asset_inspect PRIVATE cxx_std_20)
+target_compile_definitions(openw3d_asset_inspect PRIVATE OPENW3D_MODERN_RUNTIME=1)
+set_target_properties(openw3d_asset_inspect PROPERTIES OUTPUT_NAME "openw3d-asset-inspect")
+if(MINGW)
+    target_link_options(openw3d_asset_inspect PRIVATE -static-libgcc -static-libstdc++)
+endif()

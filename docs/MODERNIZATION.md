@@ -60,6 +60,16 @@ glTF 2.0 is the initial normalized mesh/material representation, KTX2/BasisU is 
 5. No new proprietary SDKs, 32-bit assumptions, global mutable singleton state, raw ownership, or platform-specific file paths.
 6. Keep the legacy build green while the Modern target grows independently.
 
+## Phase status
+
+### Phase 0 — boundary and foundation: complete
+
+### Phase 1 — retail asset reconnaissance: complete
+
+The first inspector implementation is available as `openw3d-asset-inspect`. It accepts explicit roots, validates retail content signatures, scores candidates, and emits schema-versioned JSON inventories. The Windows build was verified against the local Steam installation: `Always.dat` detected, 27 MIX archives detected, 88 data files scanned, and the candidate accepted with score 155.
+
+The next phase is asset parsing/cooking: begin with MIX/archive indexing and extract one real retail asset into the normalized OpenW3D package format.
+
 ## Milestones
 
 1. Foundation: SDL3 lifecycle, logging, fixed timestep, platform paths, tests.
