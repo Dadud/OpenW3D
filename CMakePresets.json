@@ -218,6 +218,37 @@
             }
         },
         {
+            "name": "modern-runtime",
+            "inherits": "sdl3-shell",
+            "hidden": true,
+            "displayName": "Modern cross-platform runtime",
+            "description": "Build the independent SDL3-based OpenW3D modernization runtime.",
+            "cacheVariables": {
+                "W3D_MODERN_RUNTIME": "ON",
+                "W3D_PLATFORM_SHELL": "OFF"
+            }
+        },
+        {
+            "name": "windows-modern-runtime",
+            "inherits": "modern-runtime",
+            "displayName": "Windows modern runtime",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "linux-modern-runtime",
+            "inherits": "modern-runtime",
+            "displayName": "Linux modern runtime",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
             "name": "android-sdl3-shell",
             "inherits": "sdl3-shell",
             "displayName": "Android arm64 SDL3 platform shell",

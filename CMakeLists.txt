@@ -45,6 +45,9 @@ add_feature_info(OpenW3DPlatformShell W3D_PLATFORM_SHELL "Build minimal SDL3 pla
 option(W3D_RENDERER_SMOKE "Build a minimal SDL3 + renderer link/runtime smoke executable." OFF)
 add_feature_info(OpenW3DRendererSmoke W3D_RENDERER_SMOKE "Build minimal renderer smoke executable")
 
+option(W3D_MODERN_RUNTIME "Build the modern cross-platform runtime foundation." OFF)
+add_feature_info(OpenW3DModernRuntime W3D_MODERN_RUNTIME "Build modern cross-platform runtime")
+
 option(SYNTAX_CHECK_ONLY "Syntax check the files only?" OFF)
 add_feature_info(SyntaxCheck SYNTAX_CHECK_ONLY "Syntax check files only")
 if(SYNTAX_CHECK_ONLY)
@@ -83,7 +86,7 @@ else()
 endif()
 
 if(W3D_RENDERER STREQUAL "NULL")
-    if(NOT W3D_PLATFORM_SHELL)
+    if(NOT W3D_PLATFORM_SHELL AND NOT W3D_MODERN_RUNTIME)
         set(W3D_BUILD_OPTION_SDL3 OFF CACHE BOOL "Build OpenW3D with SDL3." FORCE)
     endif()
     set(W3D_BUILD_OPTION_WEBBROWSER OFF CACHE BOOL "Build OpenW3D with webbrowser." FORCE)
@@ -184,8 +187,18 @@ if(NOT W3D_RENDERER STREQUAL "NULL")
     include(dx9)
 endif()
 
-if(NOT OPENW3D_ANDROID AND NOT W3D_RENDERER STREQUAL "NULL")
+option(W3D_BUILD_OPTION_GAMESPY "Build GameSpy online services." ON)
+add_feature_info(GameSpyBuild W3D_BUILD_OPTION_GAMESPY "Build GameSpy online services")
+
+if(W3D_BUILD_OPTION_GAMESPY AND NOT OPENW3D_ANDROID AND NOT W3D_RENDERER STREQUAL "NULL")
     include(gamespy)
+endif()
+
+if(W3D_MODERN_RUNTIME)
+    if(NOT W3D_BUILD_OPTION_SDL3)
+        message(FATAL_ERROR "W3D_MODERN_RUNTIME requires W3D_BUILD_OPTION_SDL3=ON")
+    endif()
+    add_subdirectory(Modern)
 endif()
 
 # Add main build targets
