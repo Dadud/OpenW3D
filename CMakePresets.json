@@ -281,6 +281,28 @@
                 "W3D_BUILD_OPTION_OPENAL": "OFF",
                 "W3D_BUILD_OPTION_FREETYPE": "OFF"
             }
+        },
+        {
+            "name": "android-dxvk-linked-probe",
+            "displayName": "Android arm64 DXVK linked renderer probe",
+            "description": "Configure renderer targets against real DXVK/Wine D3D9 headers and the built Android libdxvk_d3d9.so.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/android-dxvk-linked-probe",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "cmake/android-aarch64.cmake",
+                "W3D_RENDERER": "DXVK",
+                "W3D_RENDERER_COMPILE_ONLY": "OFF",
+                "DXVK_INCLUDE_PATH": "C:/Users/Dadud/projects/engine-reference/fbraz3-dxvk/include/native/directx",
+                "DXVK_D3D9_LIBRARY": "C:/Users/Dadud/projects/engine-reference/fbraz3-dxvk/build-android-arm64/src/d3d9/libdxvk_d3d9.so",
+                "W3D_CLIENT": "OFF",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_SDL3": "OFF",
+                "W3D_BUILD_OPTION_WEBBROWSER": "OFF",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF"
+            }
         }
     ],
     "buildPresets": [
@@ -395,6 +417,12 @@
             "displayName": "Build android-dxvk-compile-probe",
             "description": "Build android-dxvk-compile-probe",
             "configuration": "Release"
+        },
+        {
+            "name": "android-dxvk-linked-probe",
+            "configurePreset": "android-dxvk-linked-probe",
+            "displayName": "Build android-dxvk-linked-probe",
+            "description": "Build android-dxvk-linked-probe"
         }
     ],
     "workflowPresets": [
@@ -603,6 +631,19 @@
                 {
                     "type": "build",
                     "name": "android-dxvk-compile-probe"
+                }
+            ]
+        },
+        {
+            "name": "android-dxvk-linked-probe",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "android-dxvk-linked-probe"
+                },
+                {
+                    "type": "build",
+                    "name": "android-dxvk-linked-probe"
                 }
             ]
         }
