@@ -73,6 +73,101 @@
                 "VCPKG_TARGET_TRIPLET": "x64-linux",
                 "W3D_BUILD_QT_TOOLS": "ON"
             }
+        },
+        {
+            "name": "core-null",
+            "inherits": "default",
+            "hidden": true,
+            "displayName": "Portable core/null renderer build",
+            "description": "Build renderer-neutral static libraries only; no app/audio/tools/renderer stack.",
+            "cacheVariables": {
+                "W3D_RENDERER": "NULL",
+                "W3D_CLIENT": "OFF",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_SDL3": "OFF",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF",
+                "W3D_BUILD_QT_TOOLS": "OFF"
+            }
+        },
+        {
+            "name": "windows-core-null",
+            "inherits": "core-null",
+            "displayName": "Windows core/null renderer",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            }
+        },
+        {
+            "name": "linux-core-null",
+            "inherits": "core-null",
+            "displayName": "Linux core/null renderer",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "macos-core-null",
+            "inherits": "core-null",
+            "displayName": "macOS core/null renderer",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Darwin"
+            }
+        },
+        {
+            "name": "android-core-null",
+            "inherits": "core-null",
+            "displayName": "Android arm64 core/null renderer",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/android-core-null",
+            "cacheVariables": {
+                "W3D_RENDERER": "NULL",
+                "W3D_CLIENT": "OFF",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_SDL3": "OFF",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF",
+                "W3D_BUILD_QT_TOOLS": "OFF",
+                "CMAKE_TOOLCHAIN_FILE": "cmake/android-aarch64.cmake"
+            }
+        },
+        {
+            "name": "linux-dxvk",
+            "inherits": "linux",
+            "displayName": "Linux DXVK renderer probe",
+            "cacheVariables": {
+                "W3D_RENDERER": "DXVK",
+                "W3D_BUILD_OPTION_SDL3": "ON"
+            },
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            }
+        },
+        {
+            "name": "android-dxvk-probe",
+            "displayName": "Android arm64 DXVK renderer probe",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/android-dxvk-probe",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "cmake/android-aarch64.cmake",
+                "W3D_RENDERER": "DXVK",
+                "W3D_CLIENT": "ON",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_SDL3": "OFF"
+            }
         }
     ],
     "buildPresets": [
@@ -102,6 +197,48 @@
             "configurePreset": "linux-qt",
             "displayName": "Build Linux + Qt",
             "description": "Build Qt-enabled Linux binaries",
+            "configuration": "Release"
+        },
+        {
+            "name": "windows-core-null",
+            "configurePreset": "windows-core-null",
+            "displayName": "Build windows-core-null",
+            "description": "Build windows-core-null",
+            "configuration": "Release"
+        },
+        {
+            "name": "linux-core-null",
+            "configurePreset": "linux-core-null",
+            "displayName": "Build linux-core-null",
+            "description": "Build linux-core-null",
+            "configuration": "Release"
+        },
+        {
+            "name": "macos-core-null",
+            "configurePreset": "macos-core-null",
+            "displayName": "Build macos-core-null",
+            "description": "Build macos-core-null",
+            "configuration": "Release"
+        },
+        {
+            "name": "android-core-null",
+            "configurePreset": "android-core-null",
+            "displayName": "Build android-core-null",
+            "description": "Build android-core-null",
+            "configuration": "Release"
+        },
+        {
+            "name": "linux-dxvk",
+            "configurePreset": "linux-dxvk",
+            "displayName": "Build linux-dxvk",
+            "description": "Build linux-dxvk",
+            "configuration": "Release"
+        },
+        {
+            "name": "android-dxvk-probe",
+            "configurePreset": "android-dxvk-probe",
+            "displayName": "Build android-dxvk-probe",
+            "description": "Build android-dxvk-probe",
             "configuration": "Release"
         }
     ],
@@ -155,6 +292,84 @@
                 {
                     "type": "build",
                     "name": "linux-qt"
+                }
+            ]
+        },
+        {
+            "name": "windows-core-null",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "windows-core-null"
+                },
+                {
+                    "type": "build",
+                    "name": "windows-core-null"
+                }
+            ]
+        },
+        {
+            "name": "linux-core-null",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "linux-core-null"
+                },
+                {
+                    "type": "build",
+                    "name": "linux-core-null"
+                }
+            ]
+        },
+        {
+            "name": "macos-core-null",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "macos-core-null"
+                },
+                {
+                    "type": "build",
+                    "name": "macos-core-null"
+                }
+            ]
+        },
+        {
+            "name": "android-core-null",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "android-core-null"
+                },
+                {
+                    "type": "build",
+                    "name": "android-core-null"
+                }
+            ]
+        },
+        {
+            "name": "linux-dxvk",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "linux-dxvk"
+                },
+                {
+                    "type": "build",
+                    "name": "linux-dxvk"
+                }
+            ]
+        },
+        {
+            "name": "android-dxvk-probe",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "android-dxvk-probe"
+                },
+                {
+                    "type": "build",
+                    "name": "android-dxvk-probe"
                 }
             ]
         }

@@ -1051,8 +1051,7 @@ void CPUDetectClass::Init_Processor_Log()
 	case VER_PLATFORM_WIN32_WINDOWS: SYSLOG(("Windows 9x")); break;
 	case VER_PLATFORM_WIN32_NT: SYSLOG(("Windows NT")); break;
 	}
-	SYSLOG(("
-\n"));
+	SYSLOG(("\r\n"));
 #endif
 
 	SYSLOG(("Operating system version %d.%d\r\n",OSVersionNumberMajor,OSVersionNumberMinor));

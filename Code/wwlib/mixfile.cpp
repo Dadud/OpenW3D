@@ -43,6 +43,7 @@
 #include "pathutil.h"
 #include "win.h"
 #include "bittype.h"
+#include "../platform/path_compat.h"
 
 #if defined(OPENW3D_PLATFORM_POSIX)
 #include <cstdio>
@@ -55,7 +56,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "../platform/platform.h"
-#include "../platform/path_compat.h"
 #endif
 
 /*

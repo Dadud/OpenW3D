@@ -12,12 +12,18 @@
 #include "platform.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <cstring>
 #include <string>
+
+#if defined(OPENW3D_PLATFORM_POSIX)
+#include <unistd.h>
+#endif
 
 #if defined(OPENW3D_PLATFORM_WINDOWS)
 #include <stdlib.h>
 #include <string.h>
+#include <windows.h>
 #endif
 
 namespace openw3d {
