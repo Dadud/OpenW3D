@@ -35,6 +35,36 @@ Get-ChildItem -Path $buildPath -Filter "*.dll" -File -ErrorAction SilentlyContin
     Write-Host "Staged $($_.Name)"
 }
 
+$runtimeNames = @(
+    "libbandtest.dll",
+    "libmss32.dll",
+    "binkw32.dll",
+    "libstdc++-6.dll",
+    "libgcc_s_seh-1.dll",
+    "libwinpthread-1.dll"
+)
+$runtimeSearch = @(
+    $buildPath,
+    (Join-Path $buildPath "Release"),
+    (Join-Path $buildPath "Debug"),
+    (Join-Path $env:MINGW_PREFIX "bin")
+)
+foreach ($name in $runtimeNames) {
+    $found = $null
+    foreach ($dir in $runtimeSearch) {
+        if ($dir) {
+            $candidate = Join-Path $dir $name
+            if (Test-Path $candidate) { $found = $candidate; break }
+        }
+    }
+    if ($found) {
+        Copy-Item $found (Join-Path $runPath $name) -Force
+        Write-Host "Staged $name"
+    } else {
+        Write-Warning "Runtime DLL not found: $name"
+    }
+}
+
 $shaderSrc = Join-Path $buildPath "shaders"
 $shaderDst = Join-Path $runPath "shaders"
 if (Test-Path $shaderSrc) {
