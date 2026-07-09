@@ -1,6 +1,17 @@
-add_executable(openw3d_renderer_smoke
-    renderer_smoke.cpp
-)
+if(OPENW3D_ANDROID)
+    add_library(openw3d_renderer_smoke SHARED
+        renderer_smoke.cpp
+        smoke_stubs.cpp
+    )
+    set_target_properties(openw3d_renderer_smoke PROPERTIES
+        OUTPUT_NAME main
+    )
+else()
+    add_executable(openw3d_renderer_smoke
+        renderer_smoke.cpp
+        smoke_stubs.cpp
+    )
+endif()
 
 target_link_libraries(openw3d_renderer_smoke PRIVATE
     wwcommon

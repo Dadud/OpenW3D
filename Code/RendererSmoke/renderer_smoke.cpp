@@ -38,7 +38,11 @@ bool Should_Init_WW3D()
 
 } // namespace
 
+#if defined(__ANDROID__)
+extern "C" int SDL_main(int, char **)
+#else
 int main(int, char **)
+#endif
 {
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
