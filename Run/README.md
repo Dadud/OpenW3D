@@ -45,7 +45,7 @@ Run\
     *.mix
 ```
 
-On Windows, `DATA\` and `data\` are the same folder.
+The current Windows MinGW client target links successfully. Runtime launch requires the retail/runtime DLLs listed by `ldd` (`libmss32.dll`, `binkw32.dll`, and the built `libbandtest.dll`) plus a retail `Data/` tree. Do not replace those with fake DLLs; stage them from a valid install/build output.
 
 ## Play
 

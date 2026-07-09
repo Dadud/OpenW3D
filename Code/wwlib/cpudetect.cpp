@@ -120,6 +120,8 @@ unsigned CPUDetectClass::OSVersionNumberMinor;
 unsigned CPUDetectClass::OSVersionBuildNumber;
 unsigned CPUDetectClass::OSVersionPlatformId;
 StringClass CPUDetectClass::OSVersionExtraInfo;
+StringClass CPUDetectClass::ProcessorLog;
+StringClass CPUDetectClass::CompactLog;
 
 bool CPUDetectClass::HasCPUIDInstruction=false;
 bool CPUDetectClass::HasRDTSCInstruction=false;

@@ -23,9 +23,7 @@
             "inherits": "default",
             "hidden": false,
             "displayName": "Windows builds",
-            "cacheVariables": {
-                "W3D_COMPILER_FLAGS": "/W3"
-            }
+            "cacheVariables": {}
         },
         {
             "name": "windows-qt",
