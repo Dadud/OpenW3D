@@ -38,6 +38,9 @@ add_feature_info(OpenW3DTools W3D_TOOLS "Build OpenW3D Mod Tools")
 option(W3D_PLATFORM_SHELL "Build a minimal SDL3 platform/window shell." OFF)
 add_feature_info(OpenW3DPlatformShell W3D_PLATFORM_SHELL "Build minimal SDL3 platform shell")
 
+option(W3D_RENDERER_SMOKE "Build a minimal SDL3 + renderer link/runtime smoke executable." OFF)
+add_feature_info(OpenW3DRendererSmoke W3D_RENDERER_SMOKE "Build minimal renderer smoke executable")
+
 option(SYNTAX_CHECK_ONLY "Syntax check the files only?" OFF)
 add_feature_info(SyntaxCheck SYNTAX_CHECK_ONLY "Syntax check files only")
 if(SYNTAX_CHECK_ONLY)

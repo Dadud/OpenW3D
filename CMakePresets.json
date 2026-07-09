@@ -303,6 +303,30 @@
                 "W3D_BUILD_OPTION_OPENAL": "OFF",
                 "W3D_BUILD_OPTION_FREETYPE": "OFF"
             }
+        },
+        {
+            "name": "android-dxvk-renderer-smoke",
+            "displayName": "Android arm64 DXVK renderer smoke",
+            "description": "Build minimal SDL3 executable that links ww3d2 against real Android libdxvk_d3d9.so.",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/android-dxvk-renderer-smoke",
+            "cacheVariables": {
+                "W3D_CLIENT": "OFF",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_BUILD_OPTION_WEBBROWSER": "OFF",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF",
+                "W3D_RENDERER_SMOKE": "ON",
+                "W3D_BUILD_OPTION_SDL3": "ON",
+                "OPENW3D_SDL3_SOURCE_DIR": "C:/Users/Dadud/android-dev/SDL3",
+                "CMAKE_TOOLCHAIN_FILE": "cmake/android-aarch64.cmake",
+                "W3D_RENDERER": "DXVK",
+                "W3D_RENDERER_COMPILE_ONLY": "OFF",
+                "DXVK_INCLUDE_PATH": "C:/Users/Dadud/projects/engine-reference/fbraz3-dxvk/include/native/directx",
+                "DXVK_D3D9_LIBRARY": "C:/Users/Dadud/projects/engine-reference/fbraz3-dxvk/build-android-arm64/src/d3d9/libdxvk_d3d9.so"
+            }
         }
     ],
     "buildPresets": [
@@ -409,20 +433,38 @@
             "configurePreset": "windows-native-renderer-probe",
             "displayName": "Build windows-native-renderer-probe",
             "description": "Build windows-native-renderer-probe",
-            "configuration": "Release"
+            "configuration": "Release",
+            "targets": [
+                "ww3d2"
+            ]
         },
         {
             "name": "android-dxvk-compile-probe",
             "configurePreset": "android-dxvk-compile-probe",
             "displayName": "Build android-dxvk-compile-probe",
             "description": "Build android-dxvk-compile-probe",
-            "configuration": "Release"
+            "configuration": "Release",
+            "targets": [
+                "ww3d2"
+            ]
         },
         {
             "name": "android-dxvk-linked-probe",
             "configurePreset": "android-dxvk-linked-probe",
             "displayName": "Build android-dxvk-linked-probe",
-            "description": "Build android-dxvk-linked-probe"
+            "description": "Build android-dxvk-linked-probe",
+            "targets": [
+                "ww3d2"
+            ]
+        },
+        {
+            "name": "android-dxvk-renderer-smoke",
+            "configurePreset": "android-dxvk-renderer-smoke",
+            "displayName": "Build android-dxvk-renderer-smoke",
+            "description": "Build android-dxvk-renderer-smoke",
+            "targets": [
+                "openw3d_renderer_smoke"
+            ]
         }
     ],
     "workflowPresets": [
@@ -644,6 +686,19 @@
                 {
                     "type": "build",
                     "name": "android-dxvk-linked-probe"
+                }
+            ]
+        },
+        {
+            "name": "android-dxvk-renderer-smoke",
+            "steps": [
+                {
+                    "type": "configure",
+                    "name": "android-dxvk-renderer-smoke"
+                },
+                {
+                    "type": "build",
+                    "name": "android-dxvk-renderer-smoke"
                 }
             ]
         }

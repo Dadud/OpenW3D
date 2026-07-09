@@ -101,6 +101,10 @@ if(W3D_PLATFORM_SHELL)
     add_subdirectory(PlatformShell)
 endif()
 
+if(W3D_RENDERER_SMOKE)
+    add_subdirectory(RendererSmoke)
+endif()
+
 # Final targets
 if(NOT W3D_RENDERER STREQUAL "NULL")
     add_subdirectory(BandTest)

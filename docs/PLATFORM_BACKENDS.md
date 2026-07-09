@@ -74,7 +74,8 @@ Rules:
 - Use real D3D9 header surfaces through CMake:
   - Windows: native/min-dx9 SDK
   - Non-Windows: DXVK/Wine D3D9 headers + `libdxvk_d3d9`
-- `Code/dxvk_wrapper/d3d9.h` stays first in include order for DXVK mode and forwards to `<dxvk/d3d9.h>`.
+- `Code/dxvk_wrapper/d3d9.h` stays first in include order for DXVK mode and forwards via `#include_next` to the real Wine/MinGW `d3d9.h` supplied by DXVK/native headers.
+- Android DXVK helper script: `scripts/build-dxvk-android-arm64.sh` builds `libdxvk_d3d9.so` from the local `engine-reference/fbraz3-dxvk` checkout.
 
 ### Tier 3 — packaging/runtime
 
@@ -96,7 +97,8 @@ Use `<platform>-<tier>` or `<platform>-<backend>`:
 - `macos-core-null`
 - `android-core-null`
 - `linux-dxvk`
-- `android-dxvk-probe`
+- `android-dxvk-compile-probe`
+- `android-dxvk-linked-probe`
 
 Avoid Android-only names for generic architecture. Android is just one consumer of the same backend matrix.
 
@@ -104,17 +106,24 @@ Avoid Android-only names for generic architecture. Android is just one consumer 
 
 Verified on Dadud's Windows/MSYS host:
 
-```bash
-cmake -S . -B build/android-aarch64-null -G Ninja -DCMAKE_TOOLCHAIN_FILE=cmake/android-aarch64.cmake
-cmake --build build/android-aarch64-null -j8
-```
+- `windows-core-null`
+- `android-core-null`
+- `windows-sdl3-shell` + dummy-video run
+- `android-sdl3-shell`
+- `windows-native-renderer-probe` target `ww3d2`
+- `android-dxvk-compile-probe` target `ww3d2`
+- `android-dxvk-linked-probe` target `ww3d2`
 
-Result: Android arm64 Tier 0 core/null builds `129/129`.
+Current Android DXVK artifact:
+
+```text
+C:/Users/Dadud/projects/engine-reference/fbraz3-dxvk/build-android-arm64/src/d3d9/libdxvk_d3d9.so
+```
 
 ## Next engineering steps
 
-1. Keep Tier 0/core-null green while adding presets for every platform toolchain.
-2. Add real DXVK/Wine D3D9 headers and `libdxvk_d3d9` discovery/build steps.
-3. Enable Tier 2 `W3D_RENDERER=DXVK` on Linux first, then Android/macOS.
-4. Add SDL3 platform-shell presets after renderer-neutral core is stable.
-5. Only after Linux/Android DXVK are understood, evaluate iOS/web renderer feasibility separately.
+1. Keep Tier 0/core-null and Tier 1 SDL3-shell green while renderer/runtime work advances.
+2. Add a minimal renderer smoke executable that initializes SDL3 + WW3D/DXVK far enough to clear/present one frame.
+3. Package Android SDL3 + `libdxvk_d3d9.so` into an APK/activity.
+4. Enable Tier 2 `W3D_RENDERER=DXVK` on Linux/macOS with real platform toolchains.
+5. Evaluate iOS/web renderer feasibility separately; DXVK is not assumed for web.

@@ -54,6 +54,15 @@ elseif(W3D_RENDERER STREQUAL "DXVK")
     endif()
 
     add_library(d3d9lib INTERFACE)
+    add_library(d3dx9_compat STATIC "${PROJECT_SOURCE_DIR}/Code/dxvk_wrapper/d3dx9_compat.cpp")
+    target_include_directories(d3dx9_compat PRIVATE
+        "${PROJECT_SOURCE_DIR}/Code"
+        "${PROJECT_SOURCE_DIR}/Code/wwlib"
+        "${PROJECT_SOURCE_DIR}/Code/dxvk_wrapper"
+        "${DXVK_INCLUDE_PATH}"
+        "${DXVK_INCLUDE_PATH}/../windows"
+    )
+    target_compile_features(d3dx9_compat PRIVATE cxx_std_20)
     if(NOT W3D_RENDERER_COMPILE_ONLY)
         if(NOT DXVK_D3D9_LIBRARY)
             message(FATAL_ERROR
@@ -64,6 +73,7 @@ elseif(W3D_RENDERER STREQUAL "DXVK")
         set_property(TARGET dxvk_d3d9 PROPERTY IMPORTED_LOCATION "${DXVK_D3D9_LIBRARY}")
         target_link_libraries(d3d9lib INTERFACE dxvk_d3d9)
     endif()
+    target_link_libraries(d3d9lib INTERFACE d3dx9_compat)
 
     # Keep Code/dxvk_wrapper first so <d3d9.h> resolves to the compatibility
     # wrapper, which then include_next's the real Wine/MinGW d3d9.h supplied above.
