@@ -74,6 +74,10 @@ The next phase is asset parsing/cooking: begin with MIX/archive indexing and ext
 
 `openw3d-mix-index` parses the retail `MIX1` container, validates offsets/counts/name tables, emits a JSON archive index, extracts named entries, and writes the first versioned OpenW3D package (`OWPK`). It was verified against `C&C_Canyon.mix`: 77 entries indexed, `mp_canyon.wlt` extracted at 94,512 bytes, and a 9,995,822-byte `canyon.owpkg` generated with the `OWPK` magic/version header. The package is an initial archive-preserving intermediate; typed W3D/terrain/material conversion is the next content milestone.
 
+### Incremental client slice — Windows SDL3 client build: complete
+
+The existing Renegade client/gameplay target now has a dedicated `windows-modern-client` CMake preset. It builds the real 64-bit `renegade.exe` while routing file I/O through SDL3's portable IO path when SDL3 is selected. This is a build/platform milestone only; the renderer is still the existing compatibility renderer and the binary has not yet been demonstrated loading a retail map.
+
 ### Revised execution priority
 
 The next milestone is not a ground-up runtime. It is a playable incremental port:

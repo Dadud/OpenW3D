@@ -249,6 +249,31 @@
             }
         },
         {
+            "name": "windows-modern-client",
+            "inherits": "sdl3-shell",
+            "displayName": "Windows modern Renegade client (incremental)",
+            "description": "Build existing client/gameplay with legacy renderer compatibility and modern dependency defaults.",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "W3D_CLIENT": "ON",
+                "W3D_FDS": "OFF",
+                "W3D_TOOLS": "OFF",
+                "W3D_PLATFORM_SHELL": "OFF",
+                "W3D_RENDERER": "NATIVE",
+                "W3D_BUILD_OPTION_GAMESPY": "ON",
+                "W3D_BUILD_OPTION_MILES": "ON",
+                "W3D_BUILD_OPTION_BINK": "ON",
+                "W3D_BUILD_OPTION_FFMPEG": "OFF",
+                "W3D_BUILD_OPTION_OPENAL": "OFF",
+                "W3D_BUILD_OPTION_FREETYPE": "OFF",
+                "W3D_BUILD_QT_TOOLS": "OFF"
+            }
+        },
+        {
             "name": "android-sdl3-shell",
             "inherits": "sdl3-shell",
             "displayName": "Android arm64 SDL3 platform shell",

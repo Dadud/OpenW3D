@@ -57,13 +57,14 @@
 #define SEEK_END					2	// Seek from end of file.
 #endif
 
-#if defined(OPENW3D_WIN32)
+#if defined(OPENW3D_SDL3)
+struct SDL_IOStream;
+#define	NULL_HANDLE	 	NULL
+#define	HANDLE_TYPE		SDL_IOStream *
+#elif defined(OPENW3D_WIN32)
 #include <windows.h>
 #define	NULL_HANDLE		INVALID_HANDLE_VALUE
 #define	HANDLE_TYPE		HANDLE
-#elif defined(OPENW3D_SDL3)
-#define	NULL_HANDLE	 	NULL
-#define	HANDLE_TYPE		struct SDL_IOStream*
 #elif defined(OPENW3D_POSIX) || defined(OPENW3D_ANDROID)
 #define	NULL_HANDLE		NULL
 #define	HANDLE_TYPE		void*

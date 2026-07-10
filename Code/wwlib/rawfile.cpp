@@ -427,7 +427,7 @@ int RawFileClass::Open(int rights)
 				break;
 
 			case READ:
-				#if defined(OPENW3D_WIN32)
+				#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 					Handle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ,
 												NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 				#elif defined(OPENW3D_SDL3)
@@ -441,7 +441,7 @@ int RawFileClass::Open(int rights)
 				break;
 
 			case WRITE:
-				#if defined(OPENW3D_WIN32)
+				#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 					Handle = CreateFileA(Filename, GENERIC_WRITE, 0,
 												NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
 				#elif defined(OPENW3D_SDL3)
@@ -455,7 +455,7 @@ int RawFileClass::Open(int rights)
 				break;
 
 			case READ|WRITE:
-				#if defined(OPENW3D_WIN32)
+				#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 					// SKB 5/13/99 use OPEN_ALWAYS instead of CREATE_ALWAYS so that files
 					//					does not get destroyed.
 					Handle = CreateFileA(Filename, GENERIC_READ | GENERIC_WRITE, 0,
@@ -543,7 +543,7 @@ bool RawFileClass::Is_Available(int forced)
 	*/
 	for (;;) {
 
-		#if defined(OPENW3D_WIN32)
+		#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 			Handle = CreateFileA(Filename, GENERIC_READ, FILE_SHARE_READ,
 										NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 		#elif defined(OPENW3D_SDL3)
@@ -565,7 +565,7 @@ bool RawFileClass::Is_Available(int forced)
 	**	Since the file could be opened, then close it and return that the file exists.
 	*/
 	int closeok;
-	#if defined(OPENW3D_WIN32)
+	#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 		closeok=CloseHandle(Handle);
 		if (!closeok) {
 			Error(GetLastError(), false, Filename);
@@ -623,7 +623,7 @@ void RawFileClass::Close(void)
 		**	call the error routine.
 		*/
 		int closeok;
-		#if defined(OPENW3D_WIN32)
+		#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 			closeok=CloseHandle(Handle);
 			if (!closeok) {
 				Error(GetLastError(), false, Filename);
@@ -714,7 +714,7 @@ int RawFileClass::Read(void * buffer, int size)
 
 		int readok=true;
 
-		#if defined(OPENW3D_WIN32)
+		#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 			readok=ReadFile(Handle, buffer, size, &(DWORD&)bytesread, NULL);
 		#elif defined(OPENW3D_SDL3)
 			bytesread = SDL_ReadIO(Handle, buffer, size);
@@ -741,7 +741,7 @@ int RawFileClass::Read(void * buffer, int size)
 		total += bytesread;
 
 		if (! readok) {
-			#if defined(OPENW3D_WIN32)
+			#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 				Error(GetLastError(), true, Filename);
 			#elif defined(OPENW3D_SDL3) || defined(OPENW3D_PLATFORM_POSIX)
 				Error(errno, true, Filename);
@@ -799,7 +799,7 @@ int RawFileClass::Write(void const * buffer, int size)
 	}
 
 	int writeok=true;
-	#if defined(OPENW3D_WIN32)
+	#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 		writeok=WriteFile(Handle, buffer, size, reinterpret_cast<LPDWORD>(&byteswritten), NULL);
 		if (!writeok) {
 			Error(GetLastError(), false, Filename);
@@ -959,7 +959,7 @@ int RawFileClass::Size(void)
 	*/
 	if (Is_Open()) {
 
-		#if defined(OPENW3D_WIN32)
+		#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 			size = GetFileSize(Handle, NULL);
 			if (size == 0xFFFFFFFF) {
 				Error(GetLastError(), false, Filename);
@@ -1088,7 +1088,7 @@ int RawFileClass::Delete(void)
 		}
 
 		int deleteok;
-		#if defined(OPENW3D_WIN32)
+		#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 			deleteok=DeleteFileA(Filename);
 			if (! deleteok) {
 				Error(GetLastError(), false, Filename);
@@ -1196,7 +1196,7 @@ static uint32 TimeT_to_FatTime(time_t t)
  *=============================================================================================*/
 unsigned int RawFileClass::Get_Date_Time(void)
 {
-#if defined(OPENW3D_WIN32)
+#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 	BY_HANDLE_FILE_INFORMATION info;
 
 	if (GetFileInformationByHandle(Handle, &info)) {
@@ -1261,7 +1261,7 @@ unsigned int RawFileClass::Get_Date_Time(void)
  *=============================================================================================*/
 bool RawFileClass::Set_Date_Time(unsigned int datetime)
 {
-#if defined(OPENW3D_WIN32)
+#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 	if (RawFileClass::Is_Open()) {
 		BY_HANDLE_FILE_INFORMATION info;
 
@@ -1414,7 +1414,7 @@ int RawFileClass::Raw_Seek(int pos, int dir)
 		Error(EBADF, false, Filename);
 	}
 
-	#if defined(OPENW3D_WIN32)
+	#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 		switch (dir) {
 			case SEEK_SET:
 				dir = FILE_BEGIN;
@@ -1497,14 +1497,14 @@ int RawFileClass::Raw_Seek(int pos, int dir)
  *=============================================================================================*/
 void RawFileClass::Attach (HANDLE_TYPE handle, int rights)
 {
-	Reset ();
+    Reset ();
 
-	Rights = rights;
-	BiasStart = 0;
-	BiasLength = -1;
-	Date = 0;
-	Time = 0;
-	Handle = handle;
+    Rights = rights;
+    BiasStart = 0;
+    BiasLength = -1;
+    Date = 0;
+    Time = 0;
+    Handle = handle;
 }
 
 /***********************************************************************************************
