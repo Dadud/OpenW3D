@@ -146,7 +146,7 @@ static int SDLKey_To_DIK(SDL_Keycode key)
 	case SDLK_KP_PERIOD:   return DIK_DECIMAL;
 
 	// Locks
-	case SDLK_NUMLOCK:   return DIK_NUMLOCK;
+	case SDLK_NUMLOCKCLEAR: return DIK_NUMLOCK;
 	case SDLK_SCROLLLOCK:return DIK_SCROLL;
 	case SDLK_PRINTSCREEN:return DIK_SYSRQ;
 	}
@@ -187,10 +187,13 @@ void DirectInput::Init(void)
 	EatMouseHeld = false;
 	Captured = true;
 
-	// Try to open a gamepad if one is connected
-	if (SDL_NumGamepads() > 0) {
-		s_sdl_gamepad = SDL_OpenGamepad(0);
+	// Try to open the first connected gamepad.
+	int gamepad_count = 0;
+	SDL_JoystickID* gamepads = SDL_GetGamepads(&gamepad_count);
+	if (gamepads && gamepad_count > 0) {
+		s_sdl_gamepad = SDL_OpenGamepad(gamepads[0]);
 	}
+	SDL_free(gamepads);
 
 	// Try to find the main window for mouse capture (set by the game via
 	// DirectInput::SetCaptureWindow or just left as null = desktop coords).
@@ -250,7 +253,7 @@ void DirectInput::Flush(void)
 
 void DirectInput::Read(void)
 {
-	if (!Captured && s_sdl_window) {
+	if (!Captured && g_sdl3_main_window) {
 		// Don't pump when window doesn't have focus; SDL_PollEvent still
 		// drains but we ignore input updates.
 	}

@@ -256,7 +256,6 @@ set(COMBAT_SRC
     assets.cpp
     crandom.cpp
     debug.cpp
-    directinput.cpp
     timemgr.cpp
     assets.h
     crandom.h
@@ -269,15 +268,16 @@ set(COMBAT_SRC
     timemgr.h
 )
 
-# OpenW3D @feature Cross-platform input backend. On Windows the original
-# DirectInput implementation is used; on non-Windows the SDL3 backend in
-# directinput_sdl3.cpp provides the same DirectInput class API surface
-# without needing DirectX.
-if(WIN32)
-    list(APPEND COMBAT_SRC directinput.cpp)
-else()
+# OpenW3D @feature SDL3 input backend. Use it whenever SDL3 is selected,
+# including Windows migration builds; the native DirectInput source remains
+# the fallback only for the untouched Win32 platform path.
+if(W3D_BUILD_OPTION_SDL3)
     list(APPEND COMBAT_SRC directinput_sdl3.cpp)
     list(APPEND COMBAT_SRC DIK_keycodes.h)
+elseif(WIN32)
+    list(APPEND COMBAT_SRC directinput.cpp)
+else()
+    message(FATAL_ERROR "Combat input requires SDL3 on non-Windows targets")
 endif()
 
 # Targets to build.

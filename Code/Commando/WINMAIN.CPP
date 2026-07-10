@@ -45,10 +45,10 @@
 #include "WINMAIN.H"
 #define _WIN32_WINDOWS 0x0401
 #include "winmain_compat.h"
-#if defined(OPENW3D_WIN32)
-#include <windows.h>
-#elif defined(OPENW3D_SDL3)
+#if defined(OPENW3D_SDL3)
 #include <SDL3/SDL.h>
+#elif defined(OPENW3D_WIN32)
+#include <windows.h>
 #ifdef _WIN32
 #include <direct.h>
 #else
@@ -154,7 +154,11 @@ int Top_Level_Exception_Filter(EXCEPTION_POINTERS *e_info)
  *=============================================================================================*/
 int main(int argc, char *argv[])
 {
-	WWMemoryLogClass::Init();	// This switches memlog from static to dynamic allocations mode
+#if defined(OPENW3D_SDL3)
+	FILE* startup_trace = fopen("openw3d-startup.log", "w");
+	if (startup_trace) { fputs("main\n", startup_trace); fclose(startup_trace); }
+#endif
+	WWMemoryLogClass::Init();
 
 #ifdef _DEBUG
 	/*
@@ -408,6 +412,10 @@ static bool Video_Card_Driver_Check()
  *=============================================================================================*/
 int Start_Application(void)
 {
+#if defined(OPENW3D_SDL3)
+	FILE* startup_trace = fopen("openw3d-startup.log", "a");
+	if (startup_trace) { fputs("Start_Application\n", startup_trace); fclose(startup_trace); }
+#endif
 	{
 		WWMEMLOG(MEM_GAMEINIT);
 		//LPSTR	command	= lpCmdLine;
@@ -440,8 +448,10 @@ int Start_Application(void)
 		** Only do these checks if this isn't an auto-restart. If we are restarting then we must have run once OK already. Right?
 		*/
 		if (AutoRestart.Get_Restart_Flag() == false && !ConsoleBox.Is_Exclusive()) {
+#if !defined(OPENW3D_SDL3)
 			if (!Video_Card_Driver_Check()) return 0;
 			if (!Graphics_Settings_Trouble_Shooting()) return 0;
+#endif
 		}
 
 		//Debug_Say(("Started logging at time %s", cMiscUtil::Get_Text_Time()));
@@ -689,9 +699,8 @@ LRESULT CALLBACK Main_Window_Proc( HWND hwnd, UINT message, WPARAM wParam, LPARA
  *=============================================================================================*/
 static BOOL Create_Main_Window(void)
 {
-#if defined(OPENW3D_WIN32)
+#if defined(OPENW3D_WIN32) && !defined(OPENW3D_SDL3)
 	WNDCLASSA    wc;
-	BOOL        rc;
 
 	ProgramInstance = (HINSTANCE)GetModuleHandleA(NULL);
 
@@ -751,24 +760,19 @@ static BOOL Create_Main_Window(void)
 		return FALSE;
 	}
 
-	// Pull the native window handle for DXVK. On X11 this is the Window
-	// (an XID, fitting in uint32_t == HWND). On Wayland we still get an
-	// X11 handle via SDL3's x11-on-wayland mode. On macOS we'd need a
-	// separate path (CALayer for Metal/DXVK) but Renegade's macOS port
-	// isn't a target right now.
+	// On Windows, WW3D still consumes an HWND. SDL owns the window but exposes
+	// that HWND as a window property, so keep the legacy renderer boundary opaque.
 	SDL_PropertiesID props = SDL_GetWindowProperties(win);
+#if defined(_WIN32)
+	HWND native_handle = (HWND)SDL_GetPointerProperty(props,
+		SDL_PROP_WINDOW_WIN32_HWND_POINTER, NULL);
+#else
 	HWND native_handle = (HWND)SDL_GetPointerProperty(props,
 		SDL_PROP_WINDOW_X11_WINDOW_POINTER, NULL);
-	if (native_handle == 0) {
-		// Try the older API for SDL3 versions that lack PROP lookups
-		SDL_SysWMinfo wminfo;
-		SDL_memset(&wminfo, 0, sizeof(wminfo));
-		SDL_VERSION(&wminfo.version);
-		if (SDL_GetWindowWMInfo(win, &wminfo, SDL_SYSWM_CURRENT_VERSION)) {
-#if defined(SDL_VIDEO_DRIVER_X11)
-			native_handle = (HWND)wminfo.info.x11.window;
 #endif
-		}
+	if (native_handle == 0) {
+		SDL_DestroyWindow(win);
+		return FALSE;
 	}
 
 	MainWindow = native_handle;
