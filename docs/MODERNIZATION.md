@@ -76,7 +76,7 @@ The next phase is asset parsing/cooking: begin with MIX/archive indexing and ext
 
 ### Incremental client slice — Windows SDL3 client build: complete
 
-The existing Renegade client/gameplay target now has a dedicated `windows-modern-client` CMake preset. It builds the real 64-bit `renegade.exe` while routing file I/O through SDL3's portable IO path when SDL3 is selected. This is a build/platform milestone only; the renderer is still the existing compatibility renderer and the binary has not yet been demonstrated loading a retail map.
+The existing client now has an explicit renderer boundary: gameplay links the `ww3d2` compatibility implementation behind a target-level marker, while the modern runtime exposes a backend-neutral selection API. The modern runtime smoke output reports `backend=null modern-api=yes`; the real client continues to use the compatibility renderer until a backend adapter is implemented.
 
 ### Revised execution priority
 

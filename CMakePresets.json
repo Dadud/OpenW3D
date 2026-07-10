@@ -252,7 +252,7 @@
             "name": "windows-modern-client",
             "inherits": "sdl3-shell",
             "displayName": "Windows modern Renegade client (incremental)",
-            "description": "Build existing client/gameplay with legacy renderer compatibility and modern dependency defaults.",
+            "description": "Build existing client/gameplay with legacy renderer compatibility and modern dependency defaults. The renderer boundary is explicit; future backends replace ww3d2 behind the client API.",
             "condition": {
                 "type": "equals",
                 "lhs": "${hostSystemName}",

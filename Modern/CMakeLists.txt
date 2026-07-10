@@ -1,5 +1,6 @@
 add_library(openw3d_modern_foundation STATIC
     foundation/runtime.cpp
+    renderer/backend.cpp
 )
 
 target_compile_features(openw3d_modern_foundation PUBLIC cxx_std_20)
@@ -8,6 +9,7 @@ target_include_directories(openw3d_modern_foundation PUBLIC
 )
 target_compile_definitions(openw3d_modern_foundation PUBLIC
     OPENW3D_MODERN_RUNTIME=1
+    $<$<STREQUAL:${W3D_RENDERER},NULL>:W3D_RENDERER_NULL=1>
 )
 
 add_executable(openw3d_modern

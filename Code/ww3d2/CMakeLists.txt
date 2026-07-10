@@ -225,6 +225,12 @@ endif()
 # Targets to build.
 add_library(ww3d2 STATIC)
 
+# Explicit seam: gameplay currently targets the legacy WW3D implementation.
+# Future modern backends replace this target behind the same client-facing API.
+target_compile_definitions(ww3d2 PRIVATE
+    OPENW3D_LEGACY_RENDERER_BOUNDARY=1
+)
+
 target_link_libraries(ww3d2 PRIVATE
     wwcommon
     wwlib
