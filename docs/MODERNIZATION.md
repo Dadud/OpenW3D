@@ -76,7 +76,7 @@ The next phase is asset parsing/cooking: begin with MIX/archive indexing and ext
 
 ### Incremental client slice — Windows SDL3 client build: complete
 
-The existing client now has an explicit renderer boundary: gameplay links the `ww3d2` compatibility implementation behind a target-level marker, while the modern runtime exposes a backend-neutral selection API. The modern runtime smoke output reports `backend=null modern-api=yes`; the real client continues to use the compatibility renderer until a backend adapter is implemented.
+- The modern runtime now exposes a backend-neutral RHI seam (`Device`, buffers, textures, frame begin/end) with a verified null implementation. Its SDL3 smoke output reports `backend=null modern-api=yes rhi-probe=ok`.
 
 ### Revised execution priority
 

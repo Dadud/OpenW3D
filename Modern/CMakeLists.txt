@@ -1,6 +1,7 @@
 add_library(openw3d_modern_foundation STATIC
     foundation/runtime.cpp
     renderer/backend.cpp
+    renderer/rhi.cpp
 )
 
 target_compile_features(openw3d_modern_foundation PUBLIC cxx_std_20)

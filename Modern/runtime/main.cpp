@@ -1,5 +1,6 @@
 #include "foundation/runtime.h"
 #include "renderer/backend.h"
+#include "renderer/rhi.h"
 
 #include <SDL3/SDL.h>
 
@@ -8,9 +9,13 @@
 int main() {
     const auto runtime = openw3d::modern::runtime_info();
     const auto backend = openw3d::renderer::selected_backend();
-    std::printf("%.*s v%u backend=%s modern-api=%s\n",
+    auto device = openw3d::renderer::create_device({runtime.name, true});
+    const bool probe_ok = device && device->create_buffer({256, false}) &&
+        device->create_texture({64, 64, openw3d::renderer::Format::RGBA8Unorm}) &&
+        device->begin_frame() && device->end_frame();
+    std::printf("%.*s v%u backend=%s modern-api=%s rhi-probe=%s\n",
         static_cast<int>(runtime.name.size()), runtime.name.data(), runtime.api_version,
-        backend.name, backend.modern_api_boundary ? "yes" : "no");
+        backend.name, backend.modern_api_boundary ? "yes" : "no", probe_ok ? "ok" : "failed");
 
     if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_EVENTS)) {
         std::fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
