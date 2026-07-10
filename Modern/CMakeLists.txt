@@ -48,3 +48,10 @@ set_target_properties(openw3d_asset_inspect PROPERTIES OUTPUT_NAME "openw3d-asse
 if(MINGW)
     target_link_options(openw3d_asset_inspect PRIVATE -static-libgcc -static-libstdc++)
 endif()
+
+add_executable(openw3d_mix_index tools/mix_index.cpp)
+target_compile_features(openw3d_mix_index PRIVATE cxx_std_20)
+set_target_properties(openw3d_mix_index PROPERTIES OUTPUT_NAME "openw3d-mix-index")
+if(MINGW)
+    target_link_options(openw3d_mix_index PRIVATE -static-libgcc -static-libstdc++)
+endif()

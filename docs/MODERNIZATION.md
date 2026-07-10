@@ -70,7 +70,9 @@ The first inspector implementation is available as `openw3d-asset-inspect`. It a
 
 The next phase is asset parsing/cooking: begin with MIX/archive indexing and extract one real retail asset into the normalized OpenW3D package format.
 
-## Milestones
+### Phase 2 — retail archive indexing: complete
+
+`openw3d-mix-index` parses the retail `MIX1` container, validates offsets/counts/name tables, emits a JSON archive index, extracts named entries, and writes the first versioned OpenW3D package (`OWPK`). It was verified against `C&C_Canyon.mix`: 77 entries indexed, `mp_canyon.wlt` extracted at 94,512 bytes, and a 9,995,822-byte `canyon.owpkg` generated with the `OWPK` magic/version header. The package is an initial archive-preserving intermediate; typed W3D/terrain/material conversion is the next content milestone.
 
 1. Foundation: SDL3 lifecycle, logging, fixed timestep, platform paths, tests.
 2. RHI: device/swapchain, buffers, textures, shaders, pipelines, render graph, null backend.
