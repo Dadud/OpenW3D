@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-The modern runtime is a new product surface. It does not load the retail executable or proprietary runtime DLLs. It **does** support retail Renegade content through read-only importers and converters for MIX archives, Always.dat, localized resources, models, textures, maps, missions, definitions, and gameplay data. Retail formats are source inputs, never live runtime dependencies. Legacy code remains available only for selective migration and tooling.
+The product goal is **modern Renegade**: preserve the existing game, maps, missions, objects, weapons, vehicles, AI, and gameplay while replacing obsolete renderer/platform dependencies. The original retail executable and proprietary runtime DLLs are not dependencies. Retail content remains usable directly during migration; offline import/cooking is an optimization and portability path, not a prerequisite for a playable build.
 
 ## Runtime layers
 
@@ -12,9 +12,9 @@ Modern/runtime
 Modern/platform
   SDL3 windowing, input, filesystem, device discovery
 Modern/render
-  renderer-independent RHI; Vulkan/D3D12/Metal/WebGPU implementations
+  renderer-independent RHI; initially adapted to the existing WW3D/gameplay boundary
 Modern/assets
-  UUID assets, glTF, KTX2/BasisU, Opus, versioned packages
+  retail MIX/W3D compatibility first; optional cooked packages later
 Modern/scene
   entities, transforms, cameras, render snapshots
 Modern/gameplay
@@ -39,7 +39,7 @@ Install discovery rules are documented in `docs/RETAIL_INSTALL_DISCOVERY.md`: la
 
 ## Content policy
 
-Retail content is imported offline and cooked into a new runtime representation:
+Retail content is supported directly first, then optionally imported/cooked for faster loading, streaming, mobile, and WebGPU packaging:
 
 ```text
 MIX / Always.dat / localized resources / W3D assets
@@ -49,13 +49,13 @@ MIX / Always.dat / localized resources / W3D assets
   -> versioned OpenW3D package
 ```
 
-glTF 2.0 is the initial normalized mesh/material representation, KTX2/BasisU is the texture format, and Opus/Vorbis is the audio format. Packages are versioned, content-addressed, dependency-indexed, and safe to hot reload. Retail importers live in tools and never in the runtime. The importer must preserve stable source IDs and gameplay references so converted missions, objects, maps, and scripts can resolve against the new asset database.
+glTF 2.0/KTX2/BasisU/Opus remain future cooked targets. Retail importers live in tools, while direct retail loading remains available during renderer/platform migration. Stable source IDs and gameplay references must survive either path.
 
 ## Migration rules
 
-1. New code may depend on Modern APIs; Modern runtime code may not depend on legacy engine headers.
-2. Retail-format readers are tool-only and communicate through normalized, versioned data structures.
-3. Legacy code can consume a compatibility adapter temporarily, but the adapter cannot leak legacy types across the Modern boundary.
+1. New renderer/platform code is isolated behind adapters; existing gameplay is not rewritten unnecessarily.
+2. Retail-format readers are tools, while the existing runtime path remains supported during migration.
+3. Legacy engine types may remain behind the transitional WW3D/gameplay boundary; they must not leak into new platform backends.
 4. Every subsystem gets a narrow interface and a test/null implementation before a platform implementation.
 5. No new proprietary SDKs, 32-bit assumptions, global mutable singleton state, raw ownership, or platform-specific file paths.
 6. Keep the legacy build green while the Modern target grows independently.
@@ -73,6 +73,19 @@ The next phase is asset parsing/cooking: begin with MIX/archive indexing and ext
 ### Phase 2 — retail archive indexing: complete
 
 `openw3d-mix-index` parses the retail `MIX1` container, validates offsets/counts/name tables, emits a JSON archive index, extracts named entries, and writes the first versioned OpenW3D package (`OWPK`). It was verified against `C&C_Canyon.mix`: 77 entries indexed, `mp_canyon.wlt` extracted at 94,512 bytes, and a 9,995,822-byte `canyon.owpkg` generated with the `OWPK` magic/version header. The package is an initial archive-preserving intermediate; typed W3D/terrain/material conversion is the next content milestone.
+
+### Revised execution priority
+
+The next milestone is not a ground-up runtime. It is a playable incremental port:
+
+```text
+existing Renegade gameplay/content
+  -> modern build/platform boundary
+  -> modern renderer adapter
+  -> higher FPS, geometry/effects budgets, and cross-platform backends
+```
+
+The first implementation target is the existing client/render boundary, followed by a modern backend or renderer adapter that can boot a real retail map. Asset cooking remains supporting infrastructure rather than the gate to gameplay.
 
 1. Foundation: SDL3 lifecycle, logging, fixed timestep, platform paths, tests.
 2. RHI: device/swapchain, buffers, textures, shaders, pipelines, render graph, null backend.
